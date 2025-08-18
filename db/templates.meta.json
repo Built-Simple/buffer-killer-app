@@ -1,0 +1,30 @@
+{
+  "schema": {
+    "id": {
+      "type": "INTEGER",
+      "primaryKey": true,
+      "autoIncrement": true
+    },
+    "name": {
+      "type": "TEXT",
+      "required": true
+    },
+    "html": {
+      "type": "TEXT"
+    },
+    "css": {
+      "type": "TEXT"
+    },
+    "dimensions": {
+      "type": "TEXT"
+    },
+    "created_at": {
+      "type": "DATETIME"
+    },
+    "updated_at": {
+      "type": "DATETIME"
+    }
+  },
+  "autoIncrement": 1,
+  "indexes": {}
+}

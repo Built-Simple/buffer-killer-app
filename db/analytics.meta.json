@@ -1,0 +1,33 @@
+{
+  "schema": {
+    "id": {
+      "type": "INTEGER",
+      "primaryKey": true,
+      "autoIncrement": true
+    },
+    "post_id": {
+      "type": "INTEGER",
+      "foreignKey": "posts.id"
+    },
+    "platform": {
+      "type": "TEXT"
+    },
+    "impressions": {
+      "type": "INTEGER",
+      "default": 0
+    },
+    "engagements": {
+      "type": "INTEGER",
+      "default": 0
+    },
+    "clicks": {
+      "type": "INTEGER",
+      "default": 0
+    },
+    "recorded_at": {
+      "type": "DATETIME"
+    }
+  },
+  "autoIncrement": 1,
+  "indexes": {}
+}

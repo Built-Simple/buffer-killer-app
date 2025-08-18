@@ -1,0 +1,14 @@
+{
+  "data": {
+    "posts": [],
+    "accounts": [],
+    "templates": [],
+    "analytics": []
+  },
+  "nextId": {
+    "posts": 1,
+    "accounts": 1,
+    "templates": 1,
+    "analytics": 1
+  }
+}

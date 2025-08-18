@@ -1,0 +1,75 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Production builds
+dist/
+build/
+out/
+*.asar
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+config/secrets.json
+*.key
+*.pem
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+database/*.db
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+logs/
+*.log
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+cache/
+
+# User data (don't commit user's actual data)
+userdata/
+workspaces/*.json
+drafts/*.json
+
+# FFmpeg binaries (large files)
+ffmpeg/
+*.wasm
+*.wasm.map
+
+# Uploaded media
+uploads/
+media/
+
+# Plugin development
+plugins/**/node_modules/
+plugins/**/dist/
+plugins/**/.cache/
+
+# But keep example plugin
+!plugins/word-counter/
+
+# Electron
+electron-builder.yml

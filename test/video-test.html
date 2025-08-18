@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Feature Test - Buffer Killer</title>
+  <style>
+    body {
+      font-family: -apple-system, sans-serif;
+      background: #1a1a1a;
+      color: white;
+      padding: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 30px;
+    }
+    
+    .test-section {
+      background: #2a2a2a;
+      padding: 20px;
+      border-radius: 12px;
+      margin-bottom: 20px;
+    }
+    
+    .test-button {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    
+    .test-button:hover {
+      background: #5a67d8;
+    }
+    
+    #results {
+      background: #1a1a1a;
+      padding: 15px;
+      border-radius: 8px;
+      margin-top: 20px;
+      font-family: monospace;
+      font-size: 14px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .success { color: #48bb78; }
+    .error { color: #f56565; }
+    .warning { color: #f6ad55; }
+    .info { color: #63b3ed; }
+  </style>
+</head>
+<body>
+  <h1>🎥 Video Feature Test Suite</h1>
+  
+  <div class="test-section">
+    <h2>1. Video Validator Tests</h2>
+    <p>Test the video validation module with different file scenarios</p>
+    <button class="test-button" onclick="testValidator()">Run Validator Tests</button>
+    <button class="test-button" onclick="testPlatformLimits()">Test Platform Limits</button>
+    <button class="test-button" onclick="testMetadataExtraction()">Test Metadata</button>
+  </div>
+  
+  <div class="test-section">
+    <h2>2. Video Preview UI Tests</h2>
+    <p>Test the preview UI component</p>
+    <input type="file" id="video-file" accept="video/*" style="margin-bottom: 10px;">
+    <br>
+    <button class="test-button" onclick="testPreviewUI()">Test Preview UI</button>
+    <button class="test-button" onclick="testCompressionGuide()">Show Compression Guide</button>
+    <div id="preview-container" style="margin-top: 20px;"></div>
+  </div>
+  
+  <div class="test-section">
+    <h2>3. Mock Upload Tests</h2>
+    <p>Test upload orchestration (mock mode)</p>
+    <button class="test-button" onclick="testTwitterUpload()">Mock Twitter Upload</button>
+    <button class="test-button" onclick="testMastodonUpload()">Mock Mastodon Upload</button>
+    <button class="test-button" onclick="testProgressTracking()">Test Progress Tracking</button>
+  </div>
+  
+  <div class="test-section">
+    <h2>4. Results</h2>
+    <div id="results"></div>
+  </div>
+  
+  <!-- Load the video modules -->
+  <script src="../lib/video/video-validator.js"></script>
+  <script src="../lib/video/video-preview-ui.js"></script>
+  <script src="../lib/video/video-uploader.js"></script>
+  
+  <script>
+    const resultsDiv = document.getElementById('results');
+    
+    function log(message, type = 'info') {
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type;
+      resultsDiv.innerHTML += `<div class="${className}">[${timestamp}] ${message}</div>`;
+      resultsDiv.scrollTop = resultsDiv.scrollHeight;
+    }
+    
+    function clearResults() {
+      resultsDiv.innerHTML = '';
+    }
+    
+    // Test Video Validator
+    async function testValidator() {
+      clearResults();
+      log('Starting Validator Tests...', 'info');
+      
+      try {
+        const validator = new VideoValidator();
+        
+        // Test 1: Platform limits exist
+        log('Test 1: Checking platform limits...', 'info');
+        const platforms = ['twitter', 'mastodon', 'github', 'linkedin', 'instagram'];
+        for (const platform of platforms) {
+          const limits = validator.limits[platform];
+          if (limits) {
+            log(`✅ ${platform}: max ${validator.formatSize(limits.maxSize)}, ${limits.maxDuration}s`, 'success');
+          } else {
+            log(`❌ ${platform}: No limits defined`, 'error');
+          }
+        }
+        
+        // Test 2: Format size function
+        log('Test 2: Format size function...', 'info');
+        const testSizes = [1024, 1024*1024, 1024*1024*512];
+        for (const size of testSizes) {
+          const formatted = validator.formatSize(size);
+          log(`Size ${size} = ${formatted}`, 'info');
+        }
+        
+        // Test 3: Duration formatting
+        log('Test 3: Duration formatting...', 'info');
+        const durations = [30, 90, 140, 300];
+        for (const duration of durations) {
+          const formatted = validator.formatDuration(duration);
+          log(`Duration ${duration}s = ${formatted}`, 'info');
+        }
+        
+        // Test 4: Aspect ratio detection
+        log('Test 4: Aspect ratio detection...', 'info');
+        const ratios = [
+          {w: 1920, h: 1080, expected: '16:9'},
+          {w: 1080, h: 1080, expected: '1:1'},
+          {w: 1080, h: 1920, expected: '9:16'}
+        ];
+        for (const ratio of ratios) {
+          const result = validator.getAspectRatioString(ratio.w, ratio.h);
+          const match = result === ratio.expected;
+          log(`${ratio.w}x${ratio.h} = ${result} (expected ${ratio.expected}) ${match ? '✅' : '❌'}`, 
+              match ? 'success' : 'error');
+        }
+        
+        log('✅ All validator tests completed!', 'success');
+        
+      } catch (error) {
+        log(`❌ Error: ${error.message}`, 'error');
+      }
+    }
+    
+    // Test platform limits
+    async function testPlatformLimits() {
+      clearResults();
+      log('Testing Platform-Specific Limits...', 'info');
+      
+      const validator = new VideoValidator();
+      
+      // Create mock file objects
+      const mockFiles = [
+        { name: 'small.mp4', size: 50 * 1024 * 1024, type: 'video/mp4' }, // 50MB
+        { name: 'large.mp4', size: 600 * 1024 * 1024, type: 'video/mp4' }, // 600MB
+        { name: 'huge.mp4', size: 2 * 1024 * 1024 * 1024, type: 'video/mp4' }, // 2GB
+      ];
+      
+      for (const file of mockFiles) {
+        log(`\nTesting ${file.name} (${validator.formatSize(file.size)})`, 'info');
+        
+        for (const platform of ['twitter', 'mastodon', 'github']) {
+          const limits = validator.limits[platform];
+          const valid = file.size <= limits.maxSize;
+          const message = `${platform}: ${valid ? '✅ Valid' : '❌ Too large'}`;
+          log(message, valid ? 'success' : 'warning');
+        }
+      }
+    }
+    
+    // Test metadata extraction (requires actual file)
+    async function testMetadataExtraction() {
+      clearResults();
+      const fileInput = document.getElementById('video-file');
+      
+      if (!fileInput.files[0]) {
+        log('⚠️ Please select a video file first', 'warning');
+        return;
+      }
+      
+      const file = fileInput.files[0];
+      log(`Testing metadata extraction for: ${file.name}`, 'info');
+      
+      try {
+        const validator = new VideoValidator();
+        const metadata = await validator.getMetadata(file);
+        
+        log('✅ Metadata extracted successfully:', 'success');
+        log(`Duration: ${validator.formatDuration(metadata.duration)}`, 'info');
+        log(`Resolution: ${metadata.width}x${metadata.height}`, 'info');
+        log(`Aspect Ratio: ${metadata.aspectRatioString}`, 'info');
+        
+      } catch (error) {
+        log(`❌ Failed to extract metadata: ${error.message}`, 'error');
+      }
+    }
+    
+    // Test Preview UI
+    async function testPreviewUI() {
+      const fileInput = document.getElementById('video-file');
+      
+      if (!fileInput.files[0]) {
+        log('⚠️ Please select a video file first', 'warning');
+        return;
+      }
+      
+      clearResults();
+      log('Testing Preview UI...', 'info');
+      
+      const file = fileInput.files[0];
+      const platforms = ['twitter', 'mastodon', 'github'];
+      
+      try {
+        const previewUI = new VideoPreviewUI();
+        const html = await previewUI.createPreview(file, platforms);
+        
+        document.getElementById('preview-container').innerHTML = html;
+        log('✅ Preview UI rendered successfully', 'success');
+        
+      } catch (error) {
+        log(`❌ Failed to create preview: ${error.message}`, 'error');
+      }
+    }
+    
+    // Test compression guide
+    function testCompressionGuide() {
+      clearResults();
+      log('Showing compression guide...', 'info');
+      
+      const previewUI = new VideoPreviewUI();
+      previewUI.currentPlatforms = ['twitter', 'mastodon'];
+      previewUI.showCompressionGuide();
+      
+      log('✅ Compression guide modal opened', 'success');
+    }
+    
+    // Mock Twitter upload
+    async function testTwitterUpload() {
+      clearResults();
+      log('Testing Twitter Upload (Mock)...', 'info');
+      
+      const fileInput = document.getElementById('video-file');
+      if (!fileInput.files[0]) {
+        log('⚠️ Please select a video file first', 'warning');
+        return;
+      }
+      
+      const file = fileInput.files[0];
+      const uploader = new VideoUploader();
+      
+      // Mock the upload methods
+      uploader.twitterInitUpload = async () => {
+        log('INIT: Creating upload session...', 'info');
+        return 'mock-media-id-123';
+      };
+      
+      uploader.twitterAppendChunks = async (file, mediaId) => {
+        const chunks = Math.ceil(file.size / (5 * 1024 * 1024));
+        log(`APPEND: Uploading ${chunks} chunks...`, 'info');
+        
+        for (let i = 0; i < chunks; i++) {
+          const progress = ((i + 1) / chunks * 100).toFixed(0);
+          log(`Chunk ${i + 1}/${chunks} (${progress}%)`, 'info');
+          await new Promise(r => setTimeout(r, 500)); // Simulate delay
+        }
+      };
+      
+      uploader.twitterFinalizeUpload = async () => {
+        log('FINALIZE: Completing upload...', 'info');
+        return { processing_info: { state: 'pending' } };
+      };
+      
+      uploader.twitterCheckStatus = async () => {
+        log('STATUS: Checking processing...', 'info');
+        await new Promise(r => setTimeout(r, 1000));
+        log('✅ Video ready!', 'success');
+        return { state: 'succeeded' };
+      };
+      
+      try {
+        await uploader.uploadToTwitter(file, { accessToken: 'mock-token' });
+        log('✅ Twitter upload test completed!', 'success');
+      } catch (error) {
+        log(`❌ Upload failed: ${error.message}`, 'error');
+      }
+    }
+    
+    // Mock Mastodon upload
+    async function testMastodonUpload() {
+      clearResults();
+      log('Testing Mastodon Upload (Mock)...', 'info');
+      
+      const fileInput = document.getElementById('video-file');
+      if (!fileInput.files[0]) {
+        log('⚠️ Please select a video file first', 'warning');
+        return;
+      }
+      
+      log('Uploading to Mastodon...', 'info');
+      await new Promise(r => setTimeout(r, 1000));
+      log('Processing video...', 'info');
+      await new Promise(r => setTimeout(r, 1500));
+      log('✅ Mastodon upload completed!', 'success');
+      log('Media ID: 12345678', 'info');
+    }
+    
+    // Test progress tracking
+    async function testProgressTracking() {
+      clearResults();
+      log('Testing Progress Tracking...', 'info');
+      
+      const uploader = new VideoUploader();
+      
+      // Listen for progress events
+      document.addEventListener('videoUploadProgress', (event) => {
+        const { platform, progress, message } = event.detail;
+        log(`[${platform}] ${progress}% - ${message}`, 'info');
+      });
+      
+      // Simulate progress updates
+      for (let i = 0; i <= 100; i += 10) {
+        uploader.updateProgress('test-platform', i, `Processing... ${i}%`);
+        await new Promise(r => setTimeout(r, 200));
+      }
+      
+      log('✅ Progress tracking test completed!', 'success');
+    }
+    
+    // Helper to show notifications (mock)
+    function showNotification(message, type) {
+      log(`[Notification] ${message}`, type);
+    }
+    
+    // Initialize
+    log('🎥 Video Test Suite Ready!', 'success');
+    log('Select a video file and run tests above', 'info');
+  </script>
+</body>
+</html>

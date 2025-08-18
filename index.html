@@ -1,0 +1,855 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;">
+  <title>Buffer Killer - Social Media Scheduler</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    :root {
+      --primary-color: #667eea;
+      --secondary-color: #764ba2;
+      --success-color: #48bb78;
+      --warning-color: #f6ad55;
+      --danger-color: #f56565;
+      --dark-bg: #1a1a1a;
+      --dark-surface: #2a2a2a;
+      --dark-border: #444;
+      --light-text: #ffffff;
+      --muted-text: #a0a0a0;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: var(--dark-bg);
+      color: var(--light-text);
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    /* Header */
+    .header {
+      background: linear-gradient(135deg, var(--primary-color) 0%, var(--secondary-color) 100%);
+      padding: 1rem 2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    
+    .header h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+    
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+    }
+    
+    .btn {
+      padding: 0.5rem 1rem;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background: #5a67d8;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+    
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Main Layout */
+    .main-container {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+    
+    /* Sidebar */
+    .sidebar {
+      width: 250px;
+      background: var(--dark-surface);
+      border-right: 1px solid var(--dark-border);
+      padding: 1rem;
+      overflow-y: auto;
+    }
+    
+    .sidebar h2 {
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      color: var(--muted-text);
+      margin-bottom: 1rem;
+      font-weight: 600;
+    }
+    
+    .nav-item {
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    
+    .nav-item:hover {
+      background: rgba(102, 126, 234, 0.1);
+    }
+    
+    .nav-item.active {
+      background: rgba(102, 126, 234, 0.2);
+      border-left: 3px solid var(--primary-color);
+    }
+    
+    .nav-icon {
+      width: 20px;
+      height: 20px;
+      opacity: 0.7;
+    }
+    
+    /* Content Area */
+    .content {
+      flex: 1;
+      padding: 2rem;
+      overflow-y: auto;
+    }
+    
+    /* Composer */
+    .composer {
+      background: var(--dark-surface);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .composer textarea {
+      width: 100%;
+      min-height: 120px;
+      background: var(--dark-bg);
+      color: var(--light-text);
+      border: 1px solid var(--dark-border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-size: 1rem;
+      resize: vertical;
+      font-family: inherit;
+    }
+    
+    .composer textarea:focus {
+      outline: none;
+      border-color: var(--primary-color);
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .char-count {
+      text-align: right;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: var(--muted-text);
+    }
+    
+    .char-count.warning {
+      color: var(--warning-color);
+    }
+    
+    .char-count.over {
+      color: var(--danger-color);
+      font-weight: bold;
+    }
+    
+    /* Platform Selector */
+    .platform-selector {
+      display: flex;
+      gap: 1rem;
+      margin: 1.5rem 0;
+      flex-wrap: wrap;
+    }
+    
+    .platform {
+      padding: 0.5rem 1rem;
+      background: var(--dark-bg);
+      border: 2px solid var(--dark-border);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .platform:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+    
+    .platform.selected {
+      background: var(--primary-color);
+      border-color: var(--primary-color);
+      color: white;
+    }
+    
+    .platform-icon {
+      width: 20px;
+      height: 20px;
+    }
+    
+    /* Schedule Controls */
+    .schedule-controls {
+      display: flex;
+      gap: 1rem;
+      align-items: center;
+      margin-top: 1.5rem;
+      flex-wrap: wrap;
+    }
+    
+    .schedule-controls input[type="datetime-local"] {
+      padding: 0.5rem;
+      background: var(--dark-bg);
+      color: var(--light-text);
+      border: 1px solid var(--dark-border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+    
+    .schedule-controls input[type="datetime-local"]:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+    
+    /* Options */
+    .options {
+      margin-top: 1.5rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--dark-border);
+    }
+    
+    .option-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-bottom: 1rem;
+    }
+    
+    .option-item input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      cursor: pointer;
+    }
+    
+    .option-item label {
+      cursor: pointer;
+      user-select: none;
+    }
+    
+    /* Scheduled Posts */
+    .scheduled-posts {
+      margin-top: 2rem;
+    }
+    
+    .scheduled-posts h2 {
+      margin-bottom: 1.5rem;
+      font-size: 1.25rem;
+    }
+    
+    .post-list {
+      display: grid;
+      gap: 1rem;
+    }
+    
+    .post-item {
+      background: var(--dark-surface);
+      border-radius: 8px;
+      padding: 1rem;
+      border: 1px solid var(--dark-border);
+      transition: all 0.2s;
+    }
+    
+    .post-item:hover {
+      border-color: var(--primary-color);
+      box-shadow: 0 4px 8px rgba(102, 126, 234, 0.1);
+    }
+    
+    .post-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    
+    .post-time {
+      font-size: 0.9rem;
+      color: var(--muted-text);
+    }
+    
+    .post-platforms {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .post-platform-badge {
+      padding: 0.25rem 0.5rem;
+      background: rgba(102, 126, 234, 0.2);
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+    
+    .post-content {
+      color: var(--light-text);
+      line-height: 1.5;
+      margin-bottom: 0.75rem;
+    }
+    
+    .post-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .btn-small {
+      padding: 0.25rem 0.75rem;
+      font-size: 0.85rem;
+    }
+    
+    /* Status Badge */
+    .status-badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+    
+    .status-pending {
+      background: rgba(246, 173, 85, 0.2);
+      color: var(--warning-color);
+    }
+    
+    .status-published {
+      background: rgba(72, 187, 120, 0.2);
+      color: var(--success-color);
+    }
+    
+    .status-failed {
+      background: rgba(245, 101, 101, 0.2);
+      color: var(--danger-color);
+    }
+    
+    /* Loading Spinner */
+    .spinner {
+      border: 3px solid var(--dark-border);
+      border-top: 3px solid var(--primary-color);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 2rem auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    /* Modal */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .modal.active {
+      display: flex;
+    }
+    
+    .modal-content {
+      background: var(--dark-surface);
+      border-radius: 12px;
+      padding: 2rem;
+      max-width: 500px;
+      width: 90%;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+    
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+    
+    .modal-close {
+      background: none;
+      border: none;
+      color: var(--muted-text);
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+    
+    /* Accounts Section */
+    .accounts-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .account-card {
+      background: var(--dark-bg);
+      border: 1px solid var(--dark-border);
+      border-radius: 8px;
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: all 0.2s;
+    }
+    
+    .account-card:hover {
+      border-color: var(--primary-color);
+      transform: translateY(-2px);
+    }
+    
+    .account-avatar {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      font-size: 1.2rem;
+    }
+    
+    .account-info {
+      flex: 1;
+    }
+    
+    .account-name {
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    
+    .account-platform {
+      font-size: 0.85rem;
+      color: var(--muted-text);
+    }
+    
+    .account-status {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--success-color);
+    }
+    
+    .account-status.inactive {
+      background: var(--danger-color);
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <h1>🚀 Buffer Killer</h1>
+    <div class="header-actions">
+      <button class="btn btn-secondary" id="settings-btn">⚙️ Settings</button>
+      <button class="btn btn-primary" id="add-account-btn">+ Add Account</button>
+    </div>
+  </header>
+  
+  <!-- Main Container -->
+  <div class="main-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <h2>Navigation</h2>
+      <nav>
+        <div class="nav-item active" data-page="compose">
+          <span class="nav-icon">✏️</span>
+          <span>Compose</span>
+        </div>
+        <div class="nav-item" data-page="scheduled">
+          <span class="nav-icon">📅</span>
+          <span>Scheduled</span>
+        </div>
+        <div class="nav-item" data-page="accounts">
+          <span class="nav-icon">👤</span>
+          <span>Accounts</span>
+        </div>
+        <div class="nav-item" data-page="drafts">
+          <span class="nav-icon">📝</span>
+          <span>Drafts</span>
+        </div>
+        <div class="nav-item" data-page="analytics">
+          <span class="nav-icon">📊</span>
+          <span>Analytics</span>
+        </div>
+        <div class="nav-item" data-page="rate-limits">
+          <span class="nav-icon">⚡</span>
+          <span>Rate Limits</span>
+        </div>
+        <div class="nav-item" data-page="queue-monitor">
+          <span class="nav-icon">🔀</span>
+          <span>Queue Monitor</span>
+        </div>
+        <div class="nav-item" data-page="templates">
+          <span class="nav-icon">🎨</span>
+          <span>Templates</span>
+        </div>
+        <div class="nav-item" data-page="settings">
+          <span class="nav-icon">⚙️</span>
+          <span>Settings</span>
+        </div>
+      </nav>
+      
+      <h2 style="margin-top: 2rem;">Quick Stats</h2>
+      <div style="padding: 1rem; background: var(--dark-bg); border-radius: 8px;">
+        <div style="margin-bottom: 0.75rem;">
+          <div style="font-size: 0.85rem; color: var(--muted-text);">Scheduled</div>
+          <div style="font-size: 1.5rem; font-weight: bold;" id="scheduled-count">0</div>
+        </div>
+        <div style="margin-bottom: 0.75rem;">
+          <div style="font-size: 0.85rem; color: var(--muted-text);">Published Today</div>
+          <div style="font-size: 1.5rem; font-weight: bold;" id="published-today">0</div>
+        </div>
+        <div>
+          <div style="font-size: 0.85rem; color: var(--muted-text);">Connected Accounts</div>
+          <div style="font-size: 1.5rem; font-weight: bold;" id="connected-accounts">0</div>
+        </div>
+      </div>
+      
+      <h2 style="margin-top: 2rem;">Quick Actions</h2>
+      <button class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem;" onclick="testTwitterPost()">
+        🧪 Test Twitter Post
+      </button>
+      <button class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem; background: #6364ff;" onclick="testMastodonPost()">
+        🐘 Test Mastodon Post
+      </button>
+      <button class="btn btn-primary" style="width: 100%; margin-bottom: 0.5rem; background: #333;" onclick="testGitHubPost()">
+        🐙 Test GitHub Post
+      </button>
+      
+      <h2 style="margin-top: 2rem;">Bulk Operations</h2>
+      <button class="btn btn-secondary" style="width: 100%; margin-bottom: 0.5rem;" onclick="importCSV()">
+        📁 Import CSV
+      </button>
+      <button class="btn btn-secondary" style="width: 100%; margin-bottom: 0.5rem;" onclick="exportCSV()">
+        💾 Export to CSV
+      </button>
+      <button class="btn btn-secondary" style="width: 100%;" onclick="downloadTemplate()">
+        📋 Download Template
+      </button>
+    </aside>
+    
+    <!-- Content Area -->
+    <main class="content">
+      <!-- Compose Page -->
+      <div id="compose-page" class="page">
+        <!-- Account Switcher -->
+        <div id="account-switcher-container">
+          <!-- Account switcher will be loaded here -->
+        </div>
+        
+        <div class="composer">
+          <textarea id="post-content" placeholder="What's on your mind? Share your thoughts..." maxlength="500"></textarea>
+          <div class="char-count"><span id="char-count">0</span> / <span id="char-limit">280</span></div>
+          
+          <div class="platform-selector">
+            <div class="platform" data-platform="twitter">
+              <span class="platform-icon">🐦</span>
+              <span>Twitter</span>
+            </div>
+            <div class="platform" data-platform="linkedin">
+              <span class="platform-icon">💼</span>
+              <span>LinkedIn</span>
+            </div>
+            <div class="platform" data-platform="facebook">
+              <span class="platform-icon">📘</span>
+              <span>Facebook</span>
+            </div>
+            <div class="platform" data-platform="instagram">
+              <span class="platform-icon">📷</span>
+              <span>Instagram</span>
+            </div>
+            <div class="platform" data-platform="mastodon">
+              <span class="platform-icon">🐘</span>
+              <span>Mastodon</span>
+            </div>
+            <div class="platform" data-platform="github">
+              <span class="platform-icon">🐙</span>
+              <span>GitHub</span>
+            </div>
+          </div>
+          
+          <!-- Media Upload Section -->
+          <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--dark-border);">
+            <button class="btn btn-secondary" id="add-media-btn" style="margin-bottom: 1rem;">📎 Add Media</button>
+            <button class="btn btn-secondary" id="add-video-btn" style="margin-bottom: 1rem; margin-left: 0.5rem;">🎥 Add Video</button>
+            <div id="media-preview" style="display: none; margin-bottom: 1rem;">
+              <h4 style="margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted-text);">Attached Media</h4>
+              <div id="media-preview-container" style="display: flex; gap: 0.5rem; flex-wrap: wrap;"></div>
+            </div>
+          </div>
+          
+          <div class="schedule-controls">
+            <input type="datetime-local" id="schedule-time">
+            <button class="btn btn-primary" id="schedule-btn">📅 Schedule</button>
+            <button class="btn btn-secondary" id="post-now-btn">🚀 Post Now</button>
+            <button class="btn btn-secondary" id="save-draft-btn">💾 Save Draft</button>
+          </div>
+          
+          <div class="options">
+            <div class="option-item">
+              <input type="checkbox" id="create-image">
+              <label for="create-image">Generate image from text</label>
+            </div>
+            <div class="option-item">
+              <input type="checkbox" id="add-link-tracking">
+              <label for="add-link-tracking">Add UTM tracking to links</label>
+            </div>
+            <div class="option-item">
+              <input type="checkbox" id="auto-hashtags">
+              <label for="auto-hashtags">Suggest hashtags</label>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Recent Scheduled Posts -->
+        <div class="scheduled-posts">
+          <h2>Recent Scheduled Posts</h2>
+          <div class="post-list" id="recent-posts">
+            <!-- Posts will be dynamically added here -->
+          </div>
+        </div>
+      </div>
+      
+      <!-- Scheduled Page -->
+      <div id="scheduled-page" class="page" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2>Scheduled Posts</h2>
+          <div style="display: flex; gap: 0.5rem;">
+            <button class="btn btn-secondary" onclick="importCSV()">📁 Import CSV</button>
+            <button class="btn btn-secondary" onclick="exportCSV()">💾 Export All</button>
+          </div>
+        </div>
+        <div class="post-list" id="all-scheduled-posts">
+          <!-- Scheduled posts will be loaded here -->
+        </div>
+      </div>
+      
+      <!-- Accounts Page -->
+      <div id="accounts-page" class="page" style="display: none;">
+        <h2>Connected Accounts</h2>
+        <div class="accounts-grid" id="accounts-list">
+          <!-- Account cards will be loaded here -->
+        </div>
+      </div>
+      
+      <!-- Drafts Page -->
+      <div id="drafts-page" class="page" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+          <h2>Drafts</h2>
+          <button class="btn btn-primary" onclick="createNewDraft()">+ New Draft</button>
+        </div>
+        <div id="drafts-list" class="post-list">
+          <!-- Drafts will be loaded here -->
+        </div>
+      </div>
+      
+      <!-- Analytics Page -->
+      <div id="analytics-page" class="page" style="display: none;">
+        <h2>Analytics Dashboard</h2>
+        <div id="analytics-dashboard">
+          <!-- Analytics will be loaded here -->
+        </div>
+      </div>
+      
+      <!-- Rate Limits Page -->
+      <div id="rate-limits-page" class="page" style="display: none;">
+        <h2>API Rate Limits Monitor</h2>
+        <div id="rate-limit-dashboard">
+          <!-- Rate limit dashboard will be loaded here -->
+        </div>
+      </div>
+      
+      <!-- Queue Monitor Page -->
+      <div id="queue-monitor-page" class="page" style="display: none;">
+        <div id="queue-monitor-dashboard">
+          <!-- Queue monitor dashboard will be loaded here -->
+        </div>
+      </div>
+      
+      <!-- Templates Page -->
+      <div id="templates-page" class="page" style="display: none;">
+        <h2>Image Templates</h2>
+        <p style="color: var(--muted-text);">Template editor coming soon...</p>
+      </div>
+      
+      <!-- Settings Page -->
+      <div id="settings-page" class="page" style="display: none;">
+        <h2>Settings</h2>
+        <p style="color: var(--muted-text); margin-bottom: 2rem;">Configure your API keys and application settings</p>
+        
+        <!-- Platform API Keys -->
+        <div style="background: var(--dark-surface); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem;">
+          <h3 style="margin-bottom: 1.5rem;">🔐 Platform API Keys</h3>
+          
+          <!-- Twitter Settings -->
+          <div style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--dark-border);">
+            <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+              <span>🐦 Twitter/X</span>
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--success-color);"></span>
+            </h4>
+            <p style="padding: 1rem; background: rgba(72, 187, 120, 0.1); border-radius: 6px; color: var(--success-color);">
+              ✅ No API keys required! Twitter uses browser-based OAuth 2.0 with PKCE.
+            </p>
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: var(--muted-text);">
+              Simply click "Connect Twitter" and authorize Buffer Killer in your browser. No developer account or API keys needed!
+            </p>
+          </div>
+          
+          <!-- GitHub Settings -->
+          <div style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--dark-border);">
+            <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+              <span>🐙 GitHub</span>
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--success-color);"></span>
+            </h4>
+            <p style="padding: 1rem; background: rgba(72, 187, 120, 0.1); border-radius: 6px; color: var(--success-color); margin-bottom: 1rem;">
+              ✅ No API keys required! GitHub uses browser-based authentication.
+            </p>
+            <div style="margin-bottom: 1rem;">
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted-text);">Default Repository (optional)</label>
+              <input type="text" id="github-default-repo" placeholder="social-posts" style="width: 100%; padding: 0.75rem; background: var(--dark-bg); color: var(--light-text); border: 1px solid var(--dark-border); border-radius: 6px;">
+              <p style="font-size: 0.85rem; color: var(--muted-text); margin-top: 0.5rem;">This repo will be created automatically if it doesn't exist. Posts will be created as issues.</p>
+            </div>
+          </div>
+          
+          <!-- LinkedIn Settings -->
+          <div style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--dark-border);">
+            <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+              <span>💼 LinkedIn API</span>
+              <span id="linkedin-status" style="width: 8px; height: 8px; border-radius: 50%; background: var(--danger-color);"></span>
+            </h4>
+            <div style="margin-bottom: 1rem;">
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted-text);">Client ID</label>
+              <input type="text" id="linkedin-client-id" placeholder="Enter LinkedIn Client ID" style="width: 100%; padding: 0.75rem; background: var(--dark-bg); color: var(--light-text); border: 1px solid var(--dark-border); border-radius: 6px;">
+            </div>
+            <div style="margin-bottom: 1rem;">
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted-text);">Client Secret</label>
+              <div style="position: relative;">
+                <input type="password" id="linkedin-client-secret" placeholder="Enter LinkedIn Client Secret" style="width: 100%; padding: 0.75rem; padding-right: 3rem; background: var(--dark-bg); color: var(--light-text); border: 1px solid var(--dark-border); border-radius: 6px;">
+                <button onclick="togglePasswordVisibility('linkedin-client-secret')" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted-text); cursor: pointer;">👁️</button>
+              </div>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <button class="btn btn-secondary" onclick="testCredentials('linkedin')">🧪 Test Connection</button>
+              <a href="https://www.linkedin.com/developers/apps" target="_blank" class="btn btn-secondary" style="text-decoration: none;">🔗 Get API Keys</a>
+            </div>
+            <p style="margin-top: 1rem; padding: 0.75rem; background: rgba(246, 173, 85, 0.1); border-radius: 6px; font-size: 0.9rem; color: var(--warning-color);">
+              ⚠️ LinkedIn requires app review for posting permissions. See documentation for details.
+            </p>
+          </div>
+          
+          <!-- Mastodon Settings -->
+          <div style="margin-bottom: 1rem;">
+            <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
+              <span>🐘 Mastodon</span>
+              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--success-color);"></span>
+            </h4>
+            <p style="padding: 1rem; background: rgba(72, 187, 120, 0.1); border-radius: 6px; color: var(--success-color);">
+              ✅ No API keys required! Mastodon uses dynamic app registration.
+            </p>
+          </div>
+        </div>
+        
+        <!-- Save Button -->
+        <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+          <button class="btn btn-secondary" onclick="loadSettings()">🔄 Reset</button>
+          <button class="btn btn-primary" onclick="saveSettings()">💾 Save Settings</button>
+        </div>
+      </div>
+    </main>
+  </div>
+  
+  <!-- Add Account Modal -->
+  <div id="add-account-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Connect Account</h2>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="platform-selector" style="flex-direction: column;">
+        <button class="btn btn-primary connect-platform" data-platform="twitter">
+          🐦 Connect Twitter
+        </button>
+        <button class="btn btn-primary connect-platform" data-platform="linkedin">
+          💼 Connect LinkedIn
+        </button>
+        <button class="btn btn-primary connect-platform" data-platform="facebook">
+          📘 Connect Facebook
+        </button>
+        <button class="btn btn-primary connect-platform" data-platform="instagram">
+          📷 Connect Instagram
+        </button>
+        <button class="btn btn-primary connect-platform" data-platform="mastodon">
+          🐘 Connect Mastodon
+        </button>
+        <button class="btn btn-primary connect-platform" data-platform="github">
+          🐙 Connect GitHub
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Load renderer script -->
+  <script src="renderer.js"></script>
+  <!-- Load Image Generator UI -->
+  <script src="components/image-generator-ui.js"></script>
+  <!-- Load Content Enhancement UI -->
+  <script src="components/content-enhancement-ui.js"></script>
+  <!-- Load Plugin System -->
+  <script src="lib/plugins/plugin-system.js"></script>
+  <!-- Load Plugin Manager UI -->
+  <script src="components/plugin-manager-ui.js"></script>
+  <!-- Load Bulk Operations Manager -->
+  <script src="lib/bulk/bulk-operations-manager.js"></script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+<!-- Analytics Dashboard HTML Structure -->
+<style>
+  /* Analytics Dashboard Styles */
+  .analytics-dashboard {
+    padding: 1rem;
+  }
+
+  .analytics-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .period-selector {
+    display: flex;
+    gap: 0.5rem;
+    background: var(--dark-surface);
+    padding: 0.25rem;
+    border-radius: 8px;
+  }
+
+  .period-selector button {
+    padding: 0.5rem 1rem;
+    background: transparent;
+    border: none;
+    color: var(--muted-text);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .period-selector button:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+
+  .period-selector button.active {
+    background: var(--primary-color);
+    color: white;
+  }
+
+  .platform-filter {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+  }
+
+  .platform-filter button {
+    padding: 0.5rem 1rem;
+    background: var(--dark-surface);
+    border: 1px solid var(--dark-border);
+    color: var(--light-text);
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .platform-filter button:hover {
+    border-color: var(--primary-color);
+  }
+
+  .platform-filter button.active {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+  }
+
+  .analytics-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .analytics-card {
+    background: var(--dark-surface);
+    border-radius: 12px;
+    padding: 1.5rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    transition: transform 0.2s;
+  }
+
+  .analytics-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+
+  .card-icon {
+    font-size: 2rem;
+    width: 60px;
+    height: 60px;
+    background: rgba(102, 126, 234, 0.1);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .card-content {
+    flex: 1;
+  }
+
+  .card-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: var(--light-text);
+    margin-bottom: 0.25rem;
+  }
+
+  .card-label {
+    font-size: 0.9rem;
+    color: var(--muted-text);
+  }
+
+  .change-indicator {
+    font-size: 0.85rem;
+    margin-top: 0.5rem;
+    font-weight: 600;
+  }
+
+  .analytics-charts {
+    display: grid;
+    gap: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .chart-container {
+    background: var(--dark-surface);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+  }
+
+  .chart-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--light-text);
+  }
+
+  .chart-wrapper {
+    position: relative;
+    height: 300px;
+  }
+
+  .two-column-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 2rem;
+  }
+
+  @media (max-width: 1024px) {
+    .two-column-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .top-posts-container {
+    background: var(--dark-surface);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+
+  .top-post-item {
+    display: flex;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--dark-bg);
+    border-radius: 8px;
+    margin-bottom: 0.75rem;
+    transition: all 0.2s;
+  }
+
+  .top-post-item:hover {
+    transform: translateX(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  }
+
+  .post-rank {
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: var(--primary-color);
+    min-width: 40px;
+  }
+
+  .post-info {
+    flex: 1;
+  }
+
+  .post-content {
+    color: var(--light-text);
+    margin-bottom: 0.5rem;
+    line-height: 1.4;
+  }
+
+  .post-meta {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .platform-badge {
+    padding: 0.25rem 0.75rem;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+
+  .post-stats {
+    font-size: 0.85rem;
+    color: var(--muted-text);
+  }
+
+  .post-date {
+    font-size: 0.85rem;
+    color: var(--muted-text);
+  }
+
+  .heatmap-container {
+    background: var(--dark-surface);
+    border-radius: 12px;
+    padding: 1.5rem;
+    overflow-x: auto;
+  }
+
+  .heatmap-row {
+    display: flex;
+    gap: 2px;
+  }
+
+  .heatmap-cell {
+    width: 30px;
+    height: 30px;
+    background: rgba(255, 255, 255, 0.05);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: transform 0.2s;
+  }
+
+  .heatmap-cell:hover {
+    transform: scale(1.1);
+  }
+
+  .heatmap-cell.day-label {
+    width: 50px;
+    background: transparent;
+    font-weight: 600;
+    color: var(--muted-text);
+  }
+
+  .heatmap-cell.hour-label {
+    font-size: 0.65rem;
+    color: var(--muted-text);
+    background: transparent;
+  }
+
+  .heatmap-row.header .heatmap-cell {
+    font-weight: 600;
+  }
+
+  .export-section {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 2rem;
+    gap: 1rem;
+  }
+
+  .no-data-message {
+    text-align: center;
+    padding: 3rem;
+    color: var(--muted-text);
+  }
+
+  .loading-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 400px;
+  }
+</style>
+
+<div class="analytics-dashboard">
+  <!-- Header with Controls -->
+  <div class="analytics-header">
+    <div>
+      <h2 style="margin: 0;">Analytics Dashboard</h2>
+      <p style="color: var(--muted-text); margin-top: 0.5rem;">Track your social media performance</p>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; align-items: center;">
+      <!-- Period Selector -->
+      <div class="period-selector">
+        <button data-period="today">Today</button>
+        <button data-period="7days" class="active">7 Days</button>
+        <button data-period="30days">30 Days</button>
+        <button data-period="90days">90 Days</button>
+      </div>
+      
+      <!-- Platform Filter -->
+      <div class="platform-filter">
+        <button data-platform="all" class="active">All Platforms</button>
+        <button data-platform="twitter">🐦</button>
+        <button data-platform="linkedin">💼</button>
+        <button data-platform="facebook">📘</button>
+        <button data-platform="instagram">📷</button>
+        <button data-platform="mastodon">🐘</button>
+        <button data-platform="github">🐙</button>
+      </div>
+      
+      <!-- Export Button -->
+      <button class="btn btn-primary" id="export-analytics">
+        📊 Export Report
+      </button>
+    </div>
+  </div>
+
+  <!-- Summary Cards -->
+  <div class="analytics-summary" id="analytics-summary-cards">
+    <!-- Cards will be dynamically inserted here -->
+  </div>
+
+  <!-- Main Charts -->
+  <div class="analytics-charts">
+    <!-- Engagement Timeline Chart -->
+    <div class="chart-container">
+      <div class="chart-header">
+        <h3 class="chart-title">Engagement Timeline</h3>
+        <select id="engagement-metric" style="background: var(--dark-bg); color: var(--light-text); border: 1px solid var(--dark-border); padding: 0.5rem; border-radius: 6px;">
+          <option value="all">All Metrics</option>
+          <option value="impressions">Impressions</option>
+          <option value="engagements">Engagements</option>
+          <option value="clicks">Clicks</option>
+        </select>
+      </div>
+      <div class="chart-wrapper">
+        <canvas id="engagement-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Two Column Grid for Platform and Timeline -->
+    <div class="two-column-grid">
+      <!-- Platform Distribution -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Platform Distribution</h3>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="platform-chart"></canvas>
+        </div>
+      </div>
+
+      <!-- Posts Timeline -->
+      <div class="chart-container">
+        <div class="chart-header">
+          <h3 class="chart-title">Posts Timeline</h3>
+        </div>
+        <div class="chart-wrapper">
+          <canvas id="timeline-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Top Performing Posts -->
+    <div class="top-posts-container">
+      <div class="chart-header">
+        <h3 class="chart-title">Top Performing Posts</h3>
+        <select id="top-posts-metric" style="background: var(--dark-bg); color: var(--light-text); border: 1px solid var(--dark-border); padding: 0.5rem; border-radius: 6px;">
+          <option value="engagements">By Engagements</option>
+          <option value="impressions">By Impressions</option>
+          <option value="clicks">By Clicks</option>
+        </select>
+      </div>
+      <div id="top-posts-list">
+        <!-- Top posts will be dynamically inserted here -->
+      </div>
+    </div>
+
+    <!-- Best Times to Post Heatmap -->
+    <div class="heatmap-container">
+      <div class="chart-header">
+        <h3 class="chart-title">Best Times to Post</h3>
+        <p style="color: var(--muted-text); font-size: 0.85rem;">Engagement heatmap by day and hour</p>
+      </div>
+      <div id="best-times-heatmap">
+        <!-- Heatmap will be dynamically inserted here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Section -->
+  <div class="export-section">
+    <button class="btn btn-secondary" onclick="window.print()">
+      🖨️ Print Report
+    </button>
+    <button class="btn btn-secondary" onclick="analyticsDashboard.exportAnalytics('pdf')">
+      📄 Export as PDF
+    </button>
+    <button class="btn btn-primary" onclick="analyticsDashboard.exportAnalytics('csv')">
+      📊 Export as CSV
+    </button>
+  </div>
+</div>

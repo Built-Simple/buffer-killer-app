@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Video Support Test - Buffer Killer</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a1a;
+      color: white;
+      padding: 40px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    h1 {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-size: 3rem;
+      margin-bottom: 2rem;
+    }
+    
+    .test-section {
+      background: #2a2a2a;
+      padding: 30px;
+      border-radius: 12px;
+      margin-bottom: 30px;
+    }
+    
+    .btn {
+      background: #667eea;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-right: 10px;
+      margin-bottom: 10px;
+    }
+    
+    .btn:hover {
+      background: #5a67d8;
+    }
+    
+    .platform-buttons {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+    }
+    
+    .platform-btn {
+      padding: 8px 16px;
+      background: #444;
+      border: 2px solid #444;
+      color: white;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    
+    .platform-btn.selected {
+      background: #667eea;
+      border-color: #667eea;
+    }
+    
+    #output {
+      background: #1a1a1a;
+      padding: 20px;
+      border-radius: 8px;
+      margin-top: 20px;
+      min-height: 100px;
+      font-family: monospace;
+      white-space: pre-wrap;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .success { color: #48bb78; }
+    .error { color: #f56565; }
+    .warning { color: #f6ad55; }
+    .info { color: #63b3ed; }
+  </style>
+</head>
+<body>
+  <h1>🎥 Video Support Test Suite</h1>
+  
+  <div class="test-section">
+    <h2>1. Select Platforms to Test</h2>
+    <div class="platform-buttons">
+      <button class="platform-btn selected" data-platform="twitter">🐦 Twitter</button>
+      <button class="platform-btn selected" data-platform="mastodon">🐘 Mastodon</button>
+      <button class="platform-btn selected" data-platform="github">🐙 GitHub</button>
+      <button class="platform-btn" data-platform="linkedin">💼 LinkedIn</button>
+      <button class="platform-btn" data-platform="instagram">📷 Instagram</button>
+    </div>
+  </div>
+  
+  <div class="test-section">
+    <h2>2. Test Video Validation</h2>
+    <button class="btn" onclick="testVideoValidation()">📁 Select Video File</button>
+    <button class="btn" onclick="testLargeVideo()">🎬 Test Large Video (Simulated)</button>
+    <button class="btn" onclick="testInvalidFormat()">❌ Test Invalid Format (Simulated)</button>
+    <button class="btn" onclick="clearOutput()">🗑️ Clear Output</button>
+  </div>
+  
+  <div class="test-section">
+    <h2>3. Test Results</h2>
+    <div id="output">Ready for testing...</div>
+  </div>
+  
+  <div id="preview-container"></div>
+  
+  <!-- Load our video modules -->
+  <script src="lib/video/video-validator.js"></script>
+  <script src="lib/video/video-preview-ui.js"></script>
+  <script src="lib/video/video-uploader.js"></script>
+  
+  <script>
+    // Get selected platforms
+    function getSelectedPlatforms() {
+      return Array.from(document.querySelectorAll('.platform-btn.selected'))
+        .map(btn => btn.dataset.platform);
+    }
+    
+    // Platform button toggles
+    document.querySelectorAll('.platform-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        btn.classList.toggle('selected');
+        log(`Platform ${btn.dataset.platform}: ${btn.classList.contains('selected') ? 'ON' : 'OFF'}`, 'info');
+      });
+    });
+    
+    // Logging function
+    function log(message, type = '') {
+      const output = document.getElementById('output');
+      const timestamp = new Date().toLocaleTimeString();
+      const className = type ? ` class="${type}"` : '';
+      output.innerHTML += `<div${className}>[${timestamp}] ${message}</div>`;
+      output.scrollTop = output.scrollHeight;
+    }
+    
+    function clearOutput() {
+      document.getElementById('output').innerHTML = 'Output cleared. Ready for testing...';
+    }
+    
+    // Test real video file
+    async function testVideoValidation() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'video/*';
+      
+      input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        log(`\n📹 Testing video: ${file.name}`, 'info');
+        log(`Size: ${(file.size / 1024 / 1024).toFixed(2)} MB`);
+        log(`Type: ${file.type}`);
+        
+        const platforms = getSelectedPlatforms();
+        log(`Testing for platforms: ${platforms.join(', ')}\n`);
+        
+        try {
+          const validator = new VideoValidator();
+          const results = await validator.validate(file, platforms);
+          
+          for (const [platform, result] of Object.entries(results)) {
+            if (result.valid) {
+              log(`✅ ${platform}: VALID`, 'success');
+              if (result.metadata) {
+                log(`  - Duration: ${validator.formatDuration(result.metadata.duration)}`);
+                log(`  - Resolution: ${result.metadata.width}x${result.metadata.height}`);
+                log(`  - Aspect Ratio: ${result.metadata.aspectRatioString}`);
+              }
+            } else {
+              log(`❌ ${platform}: INVALID`, 'error');
+              result.errors.forEach(err => {
+                log(`  - ${err.message}`, 'error');
+                log(`    💡 ${err.suggestion}`, 'warning');
+              });
+            }
+            
+            if (result.warnings && result.warnings.length > 0) {
+              result.warnings.forEach(warn => {
+                log(`  ⚠️ ${warn.message || warn}`, 'warning');
+              });
+            }
+            
+            log(''); // Empty line between platforms
+          }
+          
+          // Show preview UI
+          log('Generating preview UI...', 'info');
+          const previewUI = new VideoPreviewUI();
+          const previewHTML = await previewUI.createPreview(file, platforms);
+          document.getElementById('preview-container').innerHTML = previewHTML;
+          log('✅ Preview UI generated successfully!', 'success');
+          
+        } catch (error) {
+          log(`❌ Error: ${error.message}`, 'error');
+        }
+      };
+      
+      input.click();
+    }
+    
+    // Test large video simulation
+    async function testLargeVideo() {
+      log('\n🎬 Simulating large video test...', 'info');
+      
+      // Create a fake file object
+      const fakeFile = {
+        name: 'large_movie.mp4',
+        size: 600 * 1024 * 1024, // 600MB
+        type: 'video/mp4'
+      };
+      
+      log(`File: ${fakeFile.name}`);
+      log(`Size: ${(fakeFile.size / 1024 / 1024).toFixed(2)} MB`);
+      
+      const platforms = getSelectedPlatforms();
+      const validator = new VideoValidator();
+      
+      for (const platform of platforms) {
+        const limits = validator.limits[platform];
+        if (fakeFile.size > limits.maxSize) {
+          log(`❌ ${platform}: File too large (max: ${validator.formatSize(limits.maxSize)})`, 'error');
+        } else {
+          log(`✅ ${platform}: Size OK`, 'success');
+        }
+      }
+    }
+    
+    // Test invalid format
+    function testInvalidFormat() {
+      log('\n❌ Testing invalid format...', 'info');
+      
+      const fakeFile = {
+        name: 'video.avi',
+        size: 50 * 1024 * 1024, // 50MB
+        type: 'video/x-msvideo'
+      };
+      
+      log(`File: ${fakeFile.name}`);
+      log(`Type: ${fakeFile.type}`);
+      
+      const platforms = getSelectedPlatforms();
+      const validator = new VideoValidator();
+      
+      for (const platform of platforms) {
+        const limits = validator.limits[platform];
+        if (!limits.formats.includes(fakeFile.type)) {
+          log(`❌ ${platform}: Format not supported`, 'error');
+          log(`   Supported: ${limits.extensions.join(', ')}`, 'warning');
+        } else {
+          log(`✅ ${platform}: Format OK`, 'success');
+        }
+      }
+    }
+    
+    // Initial log
+    log('🎥 Video Support Test Suite Ready!', 'success');
+    log('Select platforms and click "Select Video File" to begin testing.\n');
+  </script>
+</body>
+</html>

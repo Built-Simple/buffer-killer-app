@@ -1,0 +1,10 @@
+{
+  "id": "word-counter",
+  "name": "Word Counter Plugin",
+  "version": "1.0.0",
+  "author": "Buffer Killer Team",
+  "description": "Adds word count, reading time, and content statistics to the composer",
+  "main": "index.js",
+  "permissions": ["ui", "storage"],
+  "requires": "1.0.0"
+}
