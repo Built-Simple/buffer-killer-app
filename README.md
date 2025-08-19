@@ -83,9 +83,12 @@ See [OAuth Setup Guide](docs/oauth-testing-guide.md) for detailed instructions.
 
 ## 📚 Documentation
 
-- [OAuth Testing Guide](docs/oauth-testing-guide.md)
-- [Plugin Development](docs/plugin-development.md)
-- [API Documentation](docs/api.md)
+- **[📱 Quick Start Guide](docs/QUICK_START.md)** - Get running in 60 seconds
+- **[🎪 Feature Showcase](docs/FEATURE_SHOWCASE.md)** - See what makes this amazing
+- **[🔧 Technical Documentation](TECHNICAL_DOCS.md)** - Deep dive for developers
+- **[🚀 Marketing Overview](MARKETING.md)** - Why this beats paid alternatives
+- **[🔐 OAuth Setup Guide](docs/oauth-testing-guide.md)** - Platform connection details
+- **[📝 Full Documentation](docs/)** - Everything else
 
 ## 🧪 Testing
 
