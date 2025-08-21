@@ -16,7 +16,6 @@ class DraftManager {
    */
   async createDraft(draftData) {
     const draft = {
-      id: uuidv4(),
       content: draftData.content || '',
       platforms: JSON.stringify(draftData.platforms || []),
       scheduled_time: draftData.scheduledTime || null,
@@ -28,13 +27,13 @@ class DraftManager {
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       template_id: draftData.templateId || null,
-      auto_hashtags: draftData.autoHashtags || false,
-      link_tracking: draftData.linkTracking || false,
+      auto_hashtags: draftData.autoHashtags ? 1 : 0,  // Convert boolean to integer
+      link_tracking: draftData.linkTracking ? 1 : 0,  // Convert boolean to integer
       category: draftData.category || 'general'
     };
 
-    await this.db.insert('drafts', draft);
-    return draft;
+    const result = await this.db.insert('drafts', draft);
+    return result;
   }
 
   /**
@@ -153,15 +152,18 @@ class DraftManager {
     }
 
     const duplicate = {
-      ...original,
-      id: uuidv4(),
+      content: original.content,
+      platforms: original.platforms,
+      scheduledTime: original.scheduled_time,
+      media: original.media,
+      tags: original.tags,
       title: `${original.title} (Copy)`,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      status: 'draft'
+      notes: original.notes,
+      templateId: original.template_id,
+      autoHashtags: original.auto_hashtags === 1,
+      linkTracking: original.link_tracking === 1,
+      category: original.category
     };
-
-    delete duplicate.id; // Remove ID so database generates new one
     
     return await this.createDraft(duplicate);
   }
@@ -208,12 +210,9 @@ class DraftManager {
     }
 
     const template = {
-      id: uuidv4(),
       name: templateName,
-      type: 'draft',
       content: draft.content,
       platforms: JSON.stringify(draft.platforms),
-      tags: JSON.stringify(draft.tags || []),
       category: draft.category,
       created_at: new Date().toISOString()
     };
@@ -245,7 +244,18 @@ class DraftManager {
    * Auto-save draft (for periodic saving while typing)
    */
   async autoSave(draftId, content, platforms) {
-    // Check if draft exists
+    // If draftId starts with 'draft-' it's a temporary ID
+    if (draftId && draftId.toString().startsWith('draft-')) {
+      // Create new draft and return the real ID
+      const newDraft = await this.createDraft({
+        content,
+        platforms,
+        title: 'Auto-saved Draft'
+      });
+      return newDraft;
+    }
+    
+    // Check if draft exists with the given ID
     const existing = await this.getDraft(draftId);
     
     if (existing) {
@@ -258,7 +268,6 @@ class DraftManager {
     } else {
       // Create new draft
       return await this.createDraft({
-        id: draftId,
         content,
         platforms,
         title: 'Auto-saved Draft'

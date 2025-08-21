@@ -18,6 +18,11 @@ const GitHubAuth = require('./lib/platforms/github-auth');
 const GitHubBrowserAuth = require('./lib/platforms/github-browser-auth');
 const GitHubAPI = require('./lib/platforms/github');
 const LinkedInBrowserAuth = require('./lib/platforms/linkedin-browser-auth');
+const LinkedInAPI = require('./lib/platforms/linkedin');
+const WebsiteAPI = require('./lib/platforms/website');
+const SkoolAPI = require('./lib/platforms/skool');
+const YouTubeAPI = require('./lib/platforms/youtube');
+// const { fixOAuthCallbacks } = require('./lib/auth/oauth-fix'); // REMOVED - was causing issues
 
 // Settings Manager
 const SettingsManager = require('./src/main/settings/settings-manager');
@@ -40,13 +45,20 @@ const activeAuthFlows = new Map();
 // Store Mastodon app registrations per instance
 const mastodonApps = new Map();
 
+// Debug activeAuthFlows
+setInterval(() => {
+  if (activeAuthFlows.size > 0) {
+    console.log('[DEBUG] Active auth flows:', Array.from(activeAuthFlows.keys()));
+  }
+}, 5000);
+
 // Global reference to prevent garbage collection
 let mainWindow = null;
 let oauthWindow = null;
 let scheduledJobs = new Map();
 
-// Import the new database system
-const Database = require('./src/database/database');
+// Import the SQLite database system
+const Database = require('./src/database/sqlite-database');
 const CSVImporter = require('./src/csv/csv-importer');
 const DraftManager = require('./src/drafts/draft-manager');
 
@@ -108,11 +120,40 @@ async function initDatabase() {
     };
     db.updatePost = async (id, updates) => db.update('posts', id, updates);
     db.createOrUpdateAccount = async (platform, credentials) => {
+      // Parse credentials to extract username and tokens
+      let parsedCreds = {};
+      let username = null;
+      let accessToken = null;
+      let refreshToken = null;
+      
+      try {
+        parsedCreds = typeof credentials === 'string' ? JSON.parse(credentials) : credentials;
+        username = parsedCreds.username || parsedCreds.displayName || parsedCreds.name || null;
+        accessToken = parsedCreds.accessToken || parsedCreds.access_token || null;
+        refreshToken = parsedCreds.refreshToken || parsedCreds.refresh_token || null;
+      } catch (e) {
+        console.error('Error parsing credentials:', e);
+      }
+      
       const existing = await db.findOne('accounts', { platform });
       if (existing) {
-        return await db.update('accounts', existing.id, { credentials });
+        return await db.update('accounts', existing.id, { 
+          credentials: typeof credentials === 'string' ? credentials : JSON.stringify(credentials),
+          username: username,
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          updated_at: new Date().toISOString()
+        });
       } else {
-        return await db.insert('accounts', { platform, credentials, active: true });
+        return await db.insert('accounts', { 
+          platform, 
+          credentials: typeof credentials === 'string' ? credentials : JSON.stringify(credentials),
+          username: username,
+          access_token: accessToken,
+          refresh_token: refreshToken,
+          active: true,
+          workspace_id: 1  // Default workspace
+        });
       }
     };
     db.getAccount = async (platform) => db.findOne('accounts', { platform, active: true });
@@ -359,9 +400,110 @@ async function publishToPlatform(platform, content, mediaFiles = []) {
       console.error('Error posting to GitHub:', error);
       throw error;
     }
+  } else if (platform === 'linkedin') {
+    try {
+      // Get stored credentials
+      const account = await db.getAccount('linkedin');
+      if (!account) {
+        throw new Error('LinkedIn account not connected. Please connect your account first.');
+      }
+      
+      const credentials = JSON.parse(account.credentials);
+      
+      // Post to LinkedIn
+      console.log(`Posting to LinkedIn: "${content}"`);
+      const linkedin = new LinkedInAPI(credentials.accessToken, credentials.userId);
+      const result = await linkedin.post(content);
+      
+      console.log('LinkedIn post created successfully:', result.id);
+      return result;
+    } catch (error) {
+      console.error('Error posting to LinkedIn:', error);
+      throw error;
+    }
+  } else if (platform === 'website') {
+    try {
+      // Get webhook configuration from settings or database
+      const settings = await settingsManager.loadSettings();
+      const webhookUrl = settings.WEBSITE_WEBHOOK_URL || process.env.WEBSITE_WEBHOOK_URL;
+      const apiKey = settings.WEBSITE_API_KEY || process.env.WEBSITE_API_KEY;
+      
+      if (!webhookUrl) {
+        throw new Error('Website webhook URL not configured. Please add it in Settings.');
+      }
+      
+      // Post to website
+      console.log(`Posting to website webhook: "${content}"`);
+      const website = new WebsiteAPI(webhookUrl, apiKey);
+      const result = await website.post(content);
+      
+      console.log('Website webhook called successfully');
+      return result;
+    } catch (error) {
+      console.error('Error posting to website:', error);
+      throw error;
+    }
+  } else if (platform === 'skool') {
+    try {
+      // Get Skool configuration
+      const settings = await settingsManager.loadSettings();
+      const skoolToken = settings.SKOOL_API_KEY || process.env.SKOOL_API_KEY;
+      const skoolCommunity = settings.SKOOL_COMMUNITY_URL || process.env.SKOOL_COMMUNITY_URL;
+      const skoolWebhook = settings.SKOOL_WEBHOOK_URL || process.env.SKOOL_WEBHOOK_URL;
+      
+      if (!skoolToken && !skoolWebhook) {
+        throw new Error('Skool not configured. Please add API key or webhook URL in Settings.');
+      }
+      
+      // Post to Skool
+      console.log(`Posting to Skool: "${content}"`);
+      const skool = new SkoolAPI(skoolToken, skoolCommunity);
+      const result = await skool.post(content, { webhookUrl: skoolWebhook });
+      
+      console.log('Skool post created successfully');
+      return result;
+    } catch (error) {
+      console.error('Error posting to Skool:', error);
+      throw error;
+    }
+  } else if (platform === 'youtube') {
+    try {
+      // Get stored credentials
+      const account = await db.getAccount('youtube');
+      if (!account) {
+        throw new Error('YouTube account not connected. Please connect your account first.');
+      }
+      
+      const credentials = JSON.parse(account.credentials);
+      
+      // Check if token needs refresh
+      if (credentials.expiresAt && new Date(credentials.expiresAt) <= new Date()) {
+        console.log('YouTube token expired, refreshing...');
+        const youtube = new YouTubeAPI(credentials.accessToken, credentials.refreshToken);
+        const newTokens = await youtube.refreshAccessToken();
+        
+        // Update credentials
+        credentials.accessToken = newTokens.accessToken;
+        credentials.expiresAt = new Date(Date.now() + (newTokens.expiresIn * 1000)).toISOString();
+        
+        // Update stored tokens
+        await db.createOrUpdateAccount('youtube', JSON.stringify(credentials));
+      }
+      
+      // Post to YouTube Community
+      console.log(`Posting to YouTube Community: "${content}"`);
+      const youtube = new YouTubeAPI(credentials.accessToken, credentials.refreshToken);
+      const result = await youtube.post(content);
+      
+      console.log('YouTube Community post created successfully:', result.id);
+      return result;
+    } catch (error) {
+      console.error('Error posting to YouTube:', error);
+      throw error;
+    }
   }
   
-  // Other platforms...
+  // Platform not implemented
   console.log(`Platform ${platform} not yet implemented`);
   return { success: false, message: 'Platform not yet implemented' };
 }
@@ -454,9 +596,15 @@ function setupIpcHandlers() {
   
   // Handle OAuth authentication
   ipcMain.handle('authenticate-platform', async (event, platform, options = {}) => {
+    console.log('[IPC] authenticate-platform called');
+    console.log('[IPC] Platform:', platform);
+    console.log('[IPC] Options:', options);
+    
     try {
       // Start OAuth server if not running
+      console.log('[IPC] Ensuring OAuth server is running...');
       await oauthServer.start();
+      console.log('[IPC] OAuth server confirmed running');
       
       if (platform === 'twitter') {
         // Use browser-based auth (no API keys required!)
@@ -471,22 +619,47 @@ function setupIpcHandlers() {
         console.log('Using browser-based Twitter authentication with PKCE - no API keys required!');
         return result;
       } else if (platform === 'mastodon') {
+        console.log('[IPC] Starting Mastodon authentication...');
+        
         // For Mastodon, we need the instance URL
         const instance = options.instance || 'mastodon.social';
+        console.log('[IPC] Mastodon instance:', instance);
         
         // Create new Mastodon auth instance
+        console.log('[IPC] Creating MastodonAuth instance...');
         const mastodonAuth = new MastodonAuth(instance);
+        console.log('[IPC] MastodonAuth instance created');
+        console.log('[IPC] Initial state:', mastodonAuth.state);
         
         // Register app and start OAuth flow
+        console.log('[IPC] Calling mastodonAuth.authenticate()...');
         const result = await mastodonAuth.authenticate();
+        console.log('[IPC] authenticate() result:', result);
         
         // Store auth instance and app credentials for later
-        const authKey = `mastodon-${instance}`;
+        // Use state as the key to ensure we can find it later
+        const authKey = `mastodon-${instance}-${result.state || mastodonAuth.state}`;
+        console.log(`[MASTODON AUTH] ====== STORING AUTH INSTANCE ======`);
+        console.log(`[MASTODON AUTH] Instance: ${instance}`);
+        console.log(`[MASTODON AUTH] Auth Key: ${authKey}`);
+        console.log(`[MASTODON AUTH] State from result: ${result.state}`);
+        console.log(`[MASTODON AUTH] State from auth instance: ${mastodonAuth.state}`);
+        console.log(`[MASTODON AUTH] Client ID: ${result.clientId}`);
+        
+        // Store with multiple keys for redundancy
         activeAuthFlows.set(authKey, mastodonAuth);
+        activeAuthFlows.set(`mastodon-${instance}`, mastodonAuth);
+        activeAuthFlows.set(`state-${mastodonAuth.state}`, mastodonAuth);
+        
         mastodonApps.set(instance, {
           clientId: result.clientId,
-          clientSecret: result.clientSecret
+          clientSecret: result.clientSecret,
+          state: mastodonAuth.state  // Also store state here for redundancy
         });
+        
+        console.log(`[MASTODON AUTH] Stored in activeAuthFlows. Current keys:`, Array.from(activeAuthFlows.keys()));
+        console.log(`[MASTODON AUTH] ====== END STORING ======`);
+        console.log('[IPC] Returning result to renderer...');
         
         return result;
       } else if (platform === 'github') {
@@ -516,13 +689,17 @@ function setupIpcHandlers() {
       }
       
       // Other platforms not implemented yet
-      console.log(`OAuth not yet implemented for ${platform}`);
+      console.log(`[IPC] OAuth not yet implemented for ${platform}`);
       return { 
         success: false, 
         message: `${platform} integration coming soon!` 
       };
     } catch (error) {
-      console.error(`Error authenticating ${platform}:`, error);
+      console.error(`[IPC ERROR] ====== AUTHENTICATION ERROR ======`);
+      console.error(`[IPC ERROR] Platform: ${platform}`);
+      console.error(`[IPC ERROR] Error message:`, error.message);
+      console.error(`[IPC ERROR] Error stack:`, error.stack);
+      console.error(`[IPC ERROR] ====== END ERROR ======`);
       throw error;
     }
   });
@@ -575,11 +752,129 @@ function setupIpcHandlers() {
   // Handle getting connected accounts
   ipcMain.handle('get-accounts', async () => {
     try {
+      console.log('[IPC] Getting accounts from database...');
       const accounts = await db.getAccounts();
-      // Don't send credentials to renderer
-      return accounts.map(({ credentials, ...account }) => account);
+      console.log('[IPC] Found accounts:', accounts.length);
+      
+      // Parse credentials to get usernames
+      const accountsWithUsernames = accounts.map(account => {
+        try {
+          const creds = JSON.parse(account.credentials);
+          return {
+            ...account,
+            username: creds.username || creds.displayName || 'Not set',
+            displayName: creds.displayName || creds.name || creds.username
+          };
+        } catch (e) {
+          console.error('[IPC] Error parsing credentials for', account.platform, e);
+          return {
+            ...account,
+            username: 'Not set',
+            displayName: account.platform
+          };
+        }
+      });
+      
+      console.log('[IPC] Returning accounts with usernames:', accountsWithUsernames);
+      return accountsWithUsernames;
     } catch (error) {
       console.error('Error fetching accounts:', error);
+      return [];
+    }
+  });
+  
+  // FIXED: Add missing account management handlers
+  ipcMain.handle('add-account', async (event, platform, username, instance, data) => {
+    try {
+      console.log('[IPC] Adding account:', { platform, username, instance });
+      
+      // Create credentials object
+      const credentials = {
+        ...data,
+        platform,
+        username,
+        instance
+      };
+      
+      // Insert into database
+      const result = await db.insert('accounts', {
+        platform,
+        username,
+        credentials: JSON.stringify(credentials),
+        active: true,
+        workspace_id: 1 // Default to workspace 1 for now
+      });
+      
+      console.log('[IPC] Account added:', result);
+      return result;
+    } catch (error) {
+      console.error('[IPC] Error adding account:', error);
+      throw error;
+    }
+  });
+  
+  ipcMain.handle('remove-account', async (event, accountId) => {
+    try {
+      console.log('[IPC] Removing account:', accountId);
+      await db.delete('accounts', accountId);
+      return { success: true };
+    } catch (error) {
+      console.error('[IPC] Error removing account:', error);
+      throw error;
+    }
+  });
+  
+  ipcMain.handle('post-now', async (event, content, platforms, selectedAccounts) => {
+    try {
+      console.log('[IPC] Post now:', { content, platforms, selectedAccounts });
+      
+      // Create a post scheduled for immediate publishing
+      const post = await db.createPost({
+        content,
+        platforms: JSON.stringify(platforms),
+        scheduled_time: new Date().toISOString(),
+        status: 'pending'
+      });
+      
+      // Immediately publish it
+      await publishPost(post);
+      
+      return { success: true, postId: post.id };
+    } catch (error) {
+      console.error('[IPC] Error posting now:', error);
+      throw error;
+    }
+  });
+  
+  ipcMain.handle('get-current-workspace', async () => {
+    try {
+      // For now, return the default workspace
+      const workspaces = await db.find('workspaces', { is_default: 1 });
+      if (workspaces.length > 0) {
+        const workspace = workspaces[0];
+        // Get accounts in this workspace
+        const accounts = await db.find('accounts', { workspace_id: workspace.id });
+        workspace.accounts = accounts.map(a => a.id);
+        return workspace;
+      }
+      return null;
+    } catch (error) {
+      console.error('[IPC] Error getting current workspace:', error);
+      throw error;
+    }
+  });
+  
+  ipcMain.handle('remove-account-from-workspace', async (event, workspaceId, accountId) => {
+    try {
+      console.log('[IPC] Removing account from workspace:', { workspaceId, accountId });
+      
+      // Update account to remove workspace association
+      await db.update('accounts', accountId, { workspace_id: null });
+      
+      return { success: true };
+    } catch (error) {
+      console.error('[IPC] Error removing account from workspace:', error);
+      throw error;
     }
   });
   
@@ -863,32 +1158,58 @@ function setupIpcHandlers() {
       throw error;
     }
   });
+  
+  // Debug handler to check auth flows
+  ipcMain.handle('debug-auth-flows', async () => {
+    const flows = Array.from(activeAuthFlows.keys());
+    console.log('[DEBUG IPC] Active auth flows:', flows);
+    console.log('[DEBUG IPC] Auth flows size:', activeAuthFlows.size);
+    return {
+      count: activeAuthFlows.size,
+      keys: flows
+    };
+  });
 }
 
 // App event handlers
 app.whenReady().then(async () => {
+  console.log('[MAIN] ====== APP STARTING ======');
+  console.log('[MAIN] Electron app ready');
+  
   try {
     // Initialize database
+    console.log('[MAIN] Initializing database...');
     await initDatabase();
+    console.log('[MAIN] Database initialized ✓');
     
     // Create main window
+    console.log('[MAIN] Creating main window...');
     createMainWindow();
+    console.log('[MAIN] Main window created ✓');
     
     // Set up IPC handlers
+    console.log('[MAIN] Setting up IPC handlers...');
     setupIpcHandlers();
+    console.log('[MAIN] IPC handlers ready ✓');
     
     // Set up Image Generator IPC handlers
+    console.log('[MAIN] Setting up image generator...');
     setupImageGeneratorIPC();
+    console.log('[MAIN] Image generator ready ✓');
     
     // Initialize account system (workspaces and rate limiting)
+    console.log('[MAIN] Initializing account system...');
     accountSystem = new AccountSystemIntegration(db);
     await accountSystem.initialize();
-    console.log('Account and workspace system initialized');
+    console.log('[MAIN] Account system initialized ✓');
     
     // Initialize scheduler
+    console.log('[MAIN] Initializing scheduler...');
     initScheduler();
+    console.log('[MAIN] Scheduler initialized ✓');
     
     // Initialize rate limiter event listeners
+    console.log('[MAIN] Setting up rate limiter...');
     const rateLimiter = getRateLimiter();
     
     rateLimiter.on('rate-limit-warning', (data) => {
@@ -908,12 +1229,27 @@ app.whenReady().then(async () => {
         mainWindow.webContents.send('rate-limit-warning', data);
       }
     });
+    console.log('[MAIN] Rate limiter ready ✓');
     
-    // Start OAuth server
-    await oauthServer.start();
+    // Start OAuth server - THIS IS CRITICAL!
+    console.log('[MAIN] Starting OAuth server...');
+    try {
+      await oauthServer.start();
+      console.log('[MAIN] OAuth server started successfully ✓');
+    } catch (error) {
+      console.error('[MAIN] Failed to start OAuth server:', error);
+      console.error('[MAIN] OAuth authentication will not work!');
+    }
     
     // Handle OAuth callbacks
+    console.log('[MAIN] Setting up OAuth server event listeners');
+    
     oauthServer.on('auth-code', async (data) => {
+      console.log('[MAIN] ====== AUTH-CODE EVENT RECEIVED ======');
+      console.log('[MAIN] Platform:', data.platform);
+      console.log('[MAIN] Code present:', !!data.code);
+      console.log('[MAIN] State:', data.state);
+      
       try {
         const { platform, code, state } = data;
         
@@ -946,19 +1282,59 @@ app.whenReady().then(async () => {
           activeAuthFlows.delete('twitter');
           console.log(`Successfully connected Twitter account: @${userInfo.username}`);
         } else if (platform === 'mastodon') {
+          console.log('[MASTODON CALLBACK] ====== CALLBACK RECEIVED ======');
+          console.log('[MASTODON CALLBACK] Code:', code ? 'present' : 'missing');
+          console.log('[MASTODON CALLBACK] State:', state);
+          console.log('[MASTODON CALLBACK] Active auth flows:', Array.from(activeAuthFlows.keys()));
+          
           // Find the matching Mastodon auth flow
           let mastodonAuth = null;
           let authKey = null;
           
-          for (const [key, auth] of activeAuthFlows) {
-            if (key.startsWith('mastodon-')) {
-              mastodonAuth = auth;
-              authKey = key;
-              break;
+          // Method 1: Try to find by state key directly
+          const stateKey = `state-${state}`;
+          if (activeAuthFlows.has(stateKey)) {
+            mastodonAuth = activeAuthFlows.get(stateKey);
+            authKey = stateKey;
+            console.log(`[MASTODON CALLBACK] Found auth instance by state key: ${stateKey}`);
+          }
+          
+          // Method 2: Search all mastodon keys for matching state
+          if (!mastodonAuth) {
+            for (const [key, auth] of activeAuthFlows) {
+              console.log(`[MASTODON CALLBACK] Checking key: ${key}`);
+              console.log(`[MASTODON CALLBACK] Auth object:`, auth ? 'exists' : 'null');
+              console.log(`[MASTODON CALLBACK] Auth state:`, auth ? auth.state : 'N/A');
+              
+              if (auth && auth.state === state) {
+                mastodonAuth = auth;
+                authKey = key;
+                console.log(`[MASTODON CALLBACK] Found matching auth instance by state search: ${key}`);
+                break;
+              }
+            }
+          }
+          
+          // Method 3: If still not found, try to get the most recent Mastodon auth
+          if (!mastodonAuth) {
+            console.log('[MASTODON CALLBACK] WARNING: Could not find auth by state, trying fallback...');
+            for (const [key, auth] of activeAuthFlows) {
+              if (key.startsWith('mastodon-') && auth) {
+                mastodonAuth = auth;
+                authKey = key;
+                console.log(`[MASTODON CALLBACK] Using fallback auth instance: ${key}`);
+                console.log(`[MASTODON CALLBACK] Fallback auth state: ${auth.state}`);
+                break;
+              }
             }
           }
           
           if (mastodonAuth) {
+            console.log('[MASTODON CALLBACK] Calling exchangeCodeForToken...');
+            console.log('[MASTODON CALLBACK] Auth instance:', mastodonAuth.instance);
+            console.log('[MASTODON CALLBACK] Auth state:', mastodonAuth.state);
+            console.log('[MASTODON CALLBACK] Callback state:', state);
+            
             const tokens = await mastodonAuth.exchangeCodeForToken(code, state);
             
             // Get user info
@@ -974,17 +1350,35 @@ app.whenReady().then(async () => {
             };
             
             await db.createOrUpdateAccount('mastodon', JSON.stringify(credentials));
+            console.log('[MASTODON CALLBACK] Account saved to database');
             
             // Notify renderer
             if (mainWindow) {
+              console.log('[MASTODON CALLBACK] Sending auth-success to renderer');
               mainWindow.webContents.send('auth-success', {
                 platform: 'mastodon',
                 username: `@${userInfo.username}@${mastodonAuth.instance}`
               });
+            } else {
+              console.error('[MASTODON CALLBACK] No mainWindow to send success event!');
             }
             
+            // Clean up auth flows
             activeAuthFlows.delete(authKey);
-            console.log(`Successfully connected Mastodon account: @${userInfo.username}@${mastodonAuth.instance}`);
+            activeAuthFlows.delete(`mastodon-${mastodonAuth.instance}`);
+            activeAuthFlows.delete(`state-${mastodonAuth.state}`);
+            
+            console.log(`[MASTODON CALLBACK] Successfully connected Mastodon account: @${userInfo.username}@${mastodonAuth.instance}`);
+            console.log('[MASTODON CALLBACK] ====== SUCCESS ======');
+          } else {
+            console.error('[MASTODON CALLBACK] ====== ERROR: NO AUTH INSTANCE FOUND ======');
+            console.error('[MASTODON CALLBACK] State from callback:', state);
+            console.error('[MASTODON CALLBACK] Active auth flows:', Array.from(activeAuthFlows.keys()));
+            console.error('[MASTODON CALLBACK] This usually means:');
+            console.error('[MASTODON CALLBACK] 1. The auth flow expired');
+            console.error('[MASTODON CALLBACK] 2. The app was restarted during auth');
+            console.error('[MASTODON CALLBACK] 3. Multiple auth attempts interfered');
+            throw new Error('No matching Mastodon auth session found. Please try connecting again.');
           }
         } else if (platform === 'github' && activeAuthFlows.has('github')) {
           const auth = activeAuthFlows.get('github');
@@ -1060,7 +1454,13 @@ app.whenReady().then(async () => {
           }
         }
       } catch (error) {
-        console.error('OAuth callback error:', error);
+        console.error('[OAUTH CALLBACK ERROR] ====== ERROR DETAILS ======');
+        console.error('[OAUTH CALLBACK ERROR] Platform:', data.platform);
+        console.error('[OAUTH CALLBACK ERROR] Error message:', error.message);
+        console.error('[OAUTH CALLBACK ERROR] Error stack:', error.stack);
+        console.error('[OAUTH CALLBACK ERROR] Active auth flows:', Array.from(activeAuthFlows.keys()));
+        console.error('[OAUTH CALLBACK ERROR] ====== END ERROR ======');
+        
         if (mainWindow) {
           mainWindow.webContents.send('auth-error', {
             platform: data.platform,
@@ -1078,9 +1478,24 @@ app.whenReady().then(async () => {
       activeAuthFlows.delete(data.platform);
     });
     
-    console.log('Buffer Killer app initialized successfully');
+    console.log('[MAIN] OAuth event listeners attached ✓');
+    console.log('[MAIN] ====== APP READY ======');
+    console.log('[MAIN] Buffer Killer is running!');
+    console.log('[MAIN] OAuth server: http://127.0.0.1:3000/');
+    console.log('[MAIN] Ready for authentication');
   } catch (error) {
-    console.error('Failed to initialize app:', error);
+    console.error('[MAIN] ====== STARTUP FAILED ======');
+    console.error('[MAIN] Fatal error during initialization:', error);
+    console.error('[MAIN] Stack trace:', error.stack);
+    console.error('[MAIN] The app may not work correctly');
+    
+    // Show error dialog
+    const { dialog } = require('electron');
+    dialog.showErrorBox(
+      'Startup Error',
+      `Failed to initialize Buffer Killer:\n\n${error.message}\n\nPlease restart the application.`
+    );
+    
     app.quit();
   }
 });

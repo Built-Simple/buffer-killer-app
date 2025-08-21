@@ -1,88 +1,154 @@
-// Quick diagnostic for Twitter setup
-const path = require('path');
+// Complete Startup Diagnostic for Buffer Killer
+// This tests each component individually
+
 const fs = require('fs');
+const path = require('path');
 
-console.log('\n=== BUFFER KILLER - TWITTER SETUP DIAGNOSTIC ===\n');
+console.log('='.repeat(70));
+console.log('BUFFER KILLER STARTUP DIAGNOSTIC');
+console.log('='.repeat(70));
 
-// Check .env file
-const envPath = path.join(__dirname, '.env');
-if (fs.existsSync(envPath)) {
-  const envContent = fs.readFileSync(envPath, 'utf8');
-  
-  // Check for placeholder values
-  const hasPlaceholderClientId = envContent.includes('YOUR_TWITTER_CLIENT_ID_HERE');
-  const hasPlaceholderSecret = envContent.includes('YOUR_TWITTER_CLIENT_SECRET_HERE');
-  
-  if (hasPlaceholderClientId || hasPlaceholderSecret) {
-    console.log('❌ TWITTER API KEYS NOT CONFIGURED!\n');
-    console.log('You need to add your Twitter API credentials to the .env file.\n');
-    console.log('STEPS TO GET TWITTER API KEYS:');
-    console.log('================================');
-    console.log('1. Go to: https://developer.twitter.com/en/portal/dashboard');
-    console.log('2. Sign up for Twitter Developer account ($100/month for Basic tier)');
-    console.log('3. Create a new App (or use existing one)');
-    console.log('4. In App Settings, enable OAuth 2.0');
-    console.log('5. Add this Redirect URI: http://127.0.0.1:3000/auth/twitter/callback');
-    console.log('6. Copy your Client ID and Client Secret');
-    console.log('7. Open .env file in this folder');
-    console.log('8. Replace YOUR_TWITTER_CLIENT_ID_HERE with your actual Client ID');
-    console.log('9. Replace YOUR_TWITTER_CLIENT_SECRET_HERE with your actual Client Secret');
-    console.log('10. Save the file and restart the app\n');
-    
-    console.log('ALTERNATIVE: Use Mastodon instead (free, no API costs)');
-    console.log('=========================================\n');
-  } else {
-    console.log('✅ Twitter API keys appear to be configured\n');
-    
-    // Parse .env to check values
-    require('dotenv').config();
-    
-    if (process.env.TWITTER_CLIENT_ID && process.env.TWITTER_CLIENT_SECRET) {
-      console.log('Client ID starts with:', process.env.TWITTER_CLIENT_ID.substring(0, 5) + '...');
-      console.log('Client Secret is set: Yes\n');
-      console.log('✅ Configuration looks good! You should be able to connect Twitter.\n');
-    }
+// Step 1: Check dependencies
+console.log('\n📦 STEP 1: Checking Dependencies...\n');
+
+const requiredModules = [
+  'express',
+  'electron',
+  'axios',
+  'dotenv',
+  'node-schedule',
+  'sqlite3'
+];
+
+let missingModules = [];
+for (const mod of requiredModules) {
+  try {
+    require.resolve(mod);
+    console.log(`  ✅ ${mod} - installed`);
+  } catch {
+    console.log(`  ❌ ${mod} - MISSING`);
+    missingModules.push(mod);
   }
-} else {
-  console.log('❌ .env file not found!\n');
 }
 
-console.log('CURRENT STATUS:');
-console.log('===============');
-
-// Check if database exists
-const dbPath = path.join(__dirname, 'db', 'database.json');
-if (fs.existsSync(dbPath)) {
-  const db = JSON.parse(fs.readFileSync(dbPath, 'utf8'));
-  const twitterAccount = db.data.accounts.find(a => a.platform === 'twitter');
-  
-  if (twitterAccount) {
-    try {
-      const creds = JSON.parse(twitterAccount.credentials);
-      console.log(`✅ Twitter account connected: @${creds.username || 'unknown'}`);
-      
-      // Check if token is expired
-      if (creds.expiresAt) {
-        const expiresAt = new Date(creds.expiresAt);
-        const now = new Date();
-        if (expiresAt <= now) {
-          console.log('⚠️  Token expired - will refresh automatically on next use');
-        } else {
-          const hoursLeft = Math.floor((expiresAt - now) / (1000 * 60 * 60));
-          console.log(`✅ Token valid for ${hoursLeft} more hours`);
-        }
-      }
-    } catch (e) {
-      console.log('✅ Twitter account found but credentials encrypted');
-    }
-  } else {
-    console.log('❌ No Twitter account connected yet');
-  }
-  
-  const pendingPosts = db.data.posts.filter(p => p.status === 'pending');
-  console.log(`📝 Scheduled posts: ${pendingPosts.length}`);
-} else {
-  console.log('ℹ️  No database yet (will be created on first run)');
+if (missingModules.length > 0) {
+  console.log('\n  ⚠️ Missing modules! Run: npm install');
 }
 
-console.log('\n===========================================\n');
+// Step 2: Check files
+console.log('\n📁 STEP 2: Checking Required Files...\n');
+
+const requiredFiles = [
+  'main.js',
+  'index.html',
+  'renderer.js',
+  'preload.js',
+  'src/main/auth/oauth-server.js',
+  'lib/platforms/mastodon-auth.js',
+  'src/database/sqlite-database.js'
+];
+
+let missingFiles = [];
+for (const file of requiredFiles) {
+  const filePath = path.join(__dirname, file);
+  if (fs.existsSync(filePath)) {
+    console.log(`  ✅ ${file} - exists`);
+  } else {
+    console.log(`  ❌ ${file} - MISSING`);
+    missingFiles.push(file);
+  }
+}
+
+// Step 3: Test OAuth Server
+console.log('\n🌐 STEP 3: Testing OAuth Server Component...\n');
+
+const OAuthServer = require('./src/main/auth/oauth-server');
+const testServer = new OAuthServer(3000);
+
+testServer.start().then(() => {
+  console.log('  ✅ OAuth server can start successfully');
+  console.log('  Server running at: http://127.0.0.1:3000/');
+  
+  // Test if we can reach it
+  const http = require('http');
+  http.get('http://127.0.0.1:3000/health', (res) => {
+    let data = '';
+    res.on('data', chunk => data += chunk);
+    res.on('end', () => {
+      console.log('  ✅ Health check successful:', data);
+      testServer.stop();
+      testDatabase();
+    });
+  }).on('error', (err) => {
+    console.log('  ❌ Cannot reach OAuth server:', err.message);
+    testServer.stop();
+    testDatabase();
+  });
+}).catch(error => {
+  console.log('  ❌ OAuth server failed to start:', error.message);
+  if (error.code === 'EADDRINUSE') {
+    console.log('  ⚠️ Port 3000 is already in use!');
+    console.log('  Run: netstat -ano | findstr :3000');
+  }
+  testDatabase();
+});
+
+// Step 4: Test Database
+function testDatabase() {
+  console.log('\n💾 STEP 4: Testing Database...\n');
+  
+  try {
+    const Database = require('./src/database/sqlite-database');
+    const db = new Database();
+    console.log('  ✅ Database module loaded');
+    
+    db.initialize().then(() => {
+      console.log('  ✅ Database initialized successfully');
+      showResults();
+    }).catch(error => {
+      console.log('  ❌ Database initialization failed:', error.message);
+      showResults();
+    });
+  } catch (error) {
+    console.log('  ❌ Cannot load database module:', error.message);
+    showResults();
+  }
+}
+
+// Show results
+function showResults() {
+  console.log('\n' + '='.repeat(70));
+  console.log('DIAGNOSTIC RESULTS');
+  console.log('='.repeat(70));
+  
+  if (missingModules.length === 0 && missingFiles.length === 0) {
+    console.log('\n✅ All components are present!');
+    console.log('\n📋 NEXT STEPS:');
+    console.log('1. Run the app: npm start');
+    console.log('2. Open DevTools (Ctrl+Shift+I)');
+    console.log('3. Look for [MAIN] logs in console');
+    console.log('4. Check if OAuth server starts');
+  } else {
+    console.log('\n❌ Issues found:');
+    if (missingModules.length > 0) {
+      console.log('\nMissing npm modules:');
+      missingModules.forEach(m => console.log(`  - ${m}`));
+      console.log('\n  Fix: npm install');
+    }
+    if (missingFiles.length > 0) {
+      console.log('\nMissing files:');
+      missingFiles.forEach(f => console.log(`  - ${f}`));
+      console.log('\n  These files need to be created or restored');
+    }
+  }
+  
+  console.log('\n' + '='.repeat(70));
+  console.log('If the app still doesn\'t work after fixing issues:');
+  console.log('1. Check antivirus/firewall settings');
+  console.log('2. Run as administrator');
+  console.log('3. Try: node start-oauth-server.js (test OAuth alone)');
+  console.log('4. Share all [MAIN] console logs');
+  console.log('='.repeat(70));
+  
+  process.exit(0);
+}

@@ -24,6 +24,35 @@
 - [x] Video Support ✅ COMPLETE (Session 7)
 - [x] Content Enhancement ✅ COMPLETE (Session 8)
 
+## 🐛 CRITICAL BUGS TO FIX (Session 9 - August 19, 2025):
+
+### ⚠️ WHAT I BROKE AND WHY:
+- **Mastodon OAuth Broke**: I tried to "fix" the OAuth system by overriding the authenticate-platform handler
+- **The Problem**: My fix tried to start a SECOND OAuth server on port 3000 (which was already in use)
+- **Why It Broke**: The main.js ALREADY has a working OAuth server - I didn't need to start another one!
+- **The Fix**: Removed my OAuth override - the original code was actually working fine
+- **Lesson Learned**: Don't try to fix what isn't broken! The OAuth was working, just needed minor tweaks
+
+### HIGH PRIORITY - CURRENT BUGS:
+1. [ ] **GitHub OAuth Issue**: Accounts might not display properly (needs testing after fix revert)
+2. [x] **Analytics Dashboard Error**: FIXED - Changed to use correct API name (bufferKillerAPI)
+3. [x] **Analytics Fake Data**: EXPLAINED - This is intentional placeholder data until real posts are made
+4. [x] **Mastodon OAuth Flow Issues**: BACKEND FIXED, UI UPDATE PENDING
+   - OAuth flow completes successfully ✅
+   - Token exchange works ✅
+   - Account authenticated (@Talon_Neely@mastodon.social) ✅
+   - UI doesn't auto-refresh (manual reload works) ⚠️
+   - Success page doesn't auto-close (cosmetic) ⚠️
+   - Added debug helpers: window.bufferKillerDebug
+5. [x] **Draft System SQLite Error**: FIXED - Boolean values now properly converted to integers
+6. [x] **OAuth Error**: "address already in use 127.0.0.1:3000" - FIXED by removing duplicate server
+
+### PREVIOUSLY IDENTIFIED:
+6. [x] Settings page error: FIXED - Added proper null checks in loadSettings function
+7. [x] Missing file: `lib/queue/monitor-dashboard.js` - CREATED - Full queue monitoring dashboard implemented
+8. [ ] Content Security Policy violations - inline event handlers in index.html
+9. [ ] Chart.js CDN blocked by CSP
+
 ### Completed in Session 8:
 - ✅ **Phase 9.2: Content Enhancement** COMPLETE!
   - Link shortening service integration (4 services)

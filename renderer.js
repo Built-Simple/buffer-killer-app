@@ -57,8 +57,17 @@ async function initializeApp() {
   now.setMinutes(0);
   scheduleTime.value = formatDateTimeLocal(now);
   
-  // Initialize account switcher
-  await initializeAccountSwitcher();
+  // Skip account switcher initialization for now - just use basic mode
+  // await initializeAccountSwitcher();
+  
+  // Make sure Mastodon platform is visible and selected by default
+  const mastodonPlatform = document.querySelector('[data-platform="mastodon"]');
+  if (mastodonPlatform) {
+    mastodonPlatform.style.display = 'flex';
+    mastodonPlatform.classList.add('selected');
+    selectedPlatforms.add('mastodon');
+    updateCharLimit();
+  }
   
   // Load initial data
   await loadScheduledPosts();
@@ -100,9 +109,14 @@ async function initializeApp() {
     });
     
     window.bufferKillerAPI.onAuthenticationSuccess((data) => {
+      console.log('Authentication success event received:', data);
       showNotification(`Connected to ${data.platform}!`, 'success');
-      loadAccounts();
-      closeModal();
+      
+      // Reload accounts immediately
+      setTimeout(async () => {
+        await loadAccounts();
+        closeModal();
+      }, 500);
     });
     
     window.bufferKillerAPI.onAuthenticationError((data) => {
@@ -268,8 +282,9 @@ async function schedulePost() {
     return;
   }
   
-  if (!currentAccount) {
-    showNotification('Please select an account first', 'warning');
+  // Check for any platform selected
+  if (selectedPlatforms.size === 0) {
+    showNotification('Please select at least one platform', 'warning');
     return;
   }
   
@@ -285,8 +300,10 @@ async function schedulePost() {
   }
   
   try {
+    // Use regular schedule-post if no workspace system
     const postData = {
       content: content,
+      platforms: Array.from(selectedPlatforms),
       scheduledTime: scheduledDate.toISOString(),
       media: selectedMedia.length > 0 ? selectedMedia : null,
       video: selectedVideo ? {
@@ -297,10 +314,10 @@ async function schedulePost() {
       } : null
     };
     
-    const result = await window.bufferKillerAPI.schedulePostForAccount(currentAccount.id, postData);
+    const result = await window.bufferKillerAPI.schedulePost(postData);
     
-    if (result) {
-      showNotification(`Post scheduled for @${currentAccount.username} on ${currentAccount.platform}!`, 'success');
+    if (result && result.success) {
+      showNotification(`Post scheduled successfully!`, 'success');
       clearComposer();
       await loadScheduledPosts();
       updateStats();
@@ -321,14 +338,17 @@ async function postNow() {
     return;
   }
   
-  if (!currentAccount) {
-    showNotification('Please select an account first', 'warning');
+  // Check for any platform selected
+  if (selectedPlatforms.size === 0) {
+    showNotification('Please select at least one platform', 'warning');
     return;
   }
   
   try {
+    // Use regular schedule-post with immediate time
     const postData = {
       content: content,
+      platforms: Array.from(selectedPlatforms),
       scheduledTime: new Date().toISOString(), // Post immediately
       media: selectedMedia.length > 0 ? selectedMedia : null,
       video: selectedVideo ? {
@@ -339,10 +359,10 @@ async function postNow() {
       } : null
     };
     
-    const result = await window.bufferKillerAPI.schedulePostForAccount(currentAccount.id, postData);
+    const result = await window.bufferKillerAPI.schedulePost(postData);
     
-    if (result) {
-      showNotification(`Posting now to @${currentAccount.username} on ${currentAccount.platform}...`, 'success');
+    if (result && result.success) {
+      showNotification(`Posting now...`, 'success');
       clearComposer();
       await loadScheduledPosts();
       updateStats();
@@ -427,7 +447,9 @@ async function loadAllScheduledPosts() {
 
 async function loadAccounts() {
   try {
+    console.log('Loading accounts...');
     const accounts = await window.bufferKillerAPI.getAccounts();
+    console.log('Accounts received:', accounts);
     
     if (accountsList) {
       const accountsHtml = accounts.map(account => createAccountCard(account)).join('');
@@ -435,9 +457,15 @@ async function loadAccounts() {
     }
     
     // Update connected accounts count
-    document.getElementById('connected-accounts').textContent = accounts.length;
+    const connectedCount = document.getElementById('connected-accounts');
+    if (connectedCount) {
+      connectedCount.textContent = accounts.length;
+    }
+    
+    return accounts; // Return for debugging
   } catch (error) {
     console.error('Error loading accounts:', error);
+    return [];
   }
 }
 
@@ -452,18 +480,18 @@ async function connectPlatform(platform) {
         return; // User cancelled
       }
       options.instance = instance;
-      showNotification(`Connecting to Mastodon (${instance})...`, 'info');
-    } else {
-      showNotification(`Connecting to ${platform}...`, 'info');
     }
     
+    // Start the OAuth flow
     const result = await window.bufferKillerAPI.authenticatePlatform(platform, options);
     
     if (result.success) {
+      // Don't show success here - wait for the auth-success event
+      // Just show that browser auth has started
       const displayName = platform === 'mastodon' ? `Mastodon (${options.instance})` : platform;
-      showNotification(`Successfully connected to ${displayName}!`, 'success');
-      await loadAccounts();
-      closeModal();
+      showNotification(`Please complete authentication for ${displayName} in your browser`, 'info');
+      
+      // The actual success will be handled by the auth-success event listener
     } else {
       showNotification(result.message || `Failed to connect to ${platform}`, 'error');
     }
@@ -580,14 +608,27 @@ function createPostCard(post) {
 }
 
 function createAccountCard(account) {
-  const initial = account.username ? account.username[0].toUpperCase() : getPlatformIcon(account.platform);
+  console.log('Creating account card for:', account);
+  
+  // Get display name - handle different account structures
+  let displayName = account.username || account.displayName || 'Not set';
+  let initial = displayName && displayName !== 'Not set' ? displayName[0].toUpperCase() : getPlatformIcon(account.platform);
+  
+  // For Mastodon, format the username nicely
+  if (account.platform === 'mastodon' && displayName.startsWith('@')) {
+    // Already formatted like @user@instance
+  } else if (account.platform === 'mastodon' && account.username) {
+    // Format it properly
+    displayName = `@${account.username}`;
+  }
+  
   const statusClass = account.active ? '' : 'inactive';
   
   return `
     <div class="account-card">
       <div class="account-avatar">${initial}</div>
       <div class="account-info">
-        <div class="account-name">${account.username || 'Not set'}</div>
+        <div class="account-name">${displayName}</div>
         <div class="account-platform">${account.platform}</div>
       </div>
       <div class="account-status ${statusClass}"></div>
@@ -1157,21 +1198,26 @@ window.loadSettings = async function() {
     const settings = await window.bufferKillerAPI.getSettings();
     const status = await window.bufferKillerAPI.getPlatformStatus();
     
-    // Load Twitter settings
-    document.getElementById('twitter-client-id').value = settings.TWITTER_CLIENT_ID || '';
-    document.getElementById('twitter-client-secret').value = settings.TWITTER_CLIENT_SECRET || '';
-    document.getElementById('twitter-status').style.background = status.twitter.configured ? 'var(--success-color)' : 'var(--danger-color)';
+    // Load GitHub default repo (optional setting)
+    const githubRepoInput = document.getElementById('github-default-repo');
+    if (githubRepoInput) {
+      githubRepoInput.value = settings.GITHUB_DEFAULT_REPO || 'social-posts';
+    }
     
-    // Load GitHub settings
-    document.getElementById('github-client-id').value = settings.GITHUB_CLIENT_ID || '';
-    document.getElementById('github-client-secret').value = settings.GITHUB_CLIENT_SECRET || '';
-    document.getElementById('github-default-repo').value = settings.GITHUB_DEFAULT_REPO || 'social-posts';
-    document.getElementById('github-status').style.background = status.github.configured ? 'var(--success-color)' : 'var(--danger-color)';
+    // Load LinkedIn settings (only platform that still needs API keys)
+    const linkedinClientId = document.getElementById('linkedin-client-id');
+    const linkedinClientSecret = document.getElementById('linkedin-client-secret');
+    const linkedinStatus = document.getElementById('linkedin-status');
     
-    // Load LinkedIn settings
-    document.getElementById('linkedin-client-id').value = settings.LINKEDIN_CLIENT_ID || '';
-    document.getElementById('linkedin-client-secret').value = settings.LINKEDIN_CLIENT_SECRET || '';
-    document.getElementById('linkedin-status').style.background = status.linkedin.configured ? 'var(--success-color)' : 'var(--danger-color)';
+    if (linkedinClientId) {
+      linkedinClientId.value = settings.LINKEDIN_CLIENT_ID || '';
+    }
+    if (linkedinClientSecret) {
+      linkedinClientSecret.value = settings.LINKEDIN_CLIENT_SECRET || '';
+    }
+    if (linkedinStatus) {
+      linkedinStatus.style.background = status.linkedin.configured ? 'var(--success-color)' : 'var(--danger-color)';
+    }
   } catch (error) {
     console.error('Error loading settings:', error);
     showNotification('Failed to load settings', 'error');
@@ -1180,15 +1226,23 @@ window.loadSettings = async function() {
 
 window.saveSettings = async function() {
   try {
-    const updates = {
-      TWITTER_CLIENT_ID: document.getElementById('twitter-client-id').value,
-      TWITTER_CLIENT_SECRET: document.getElementById('twitter-client-secret').value,
-      GITHUB_CLIENT_ID: document.getElementById('github-client-id').value,
-      GITHUB_CLIENT_SECRET: document.getElementById('github-client-secret').value,
-      GITHUB_DEFAULT_REPO: document.getElementById('github-default-repo').value,
-      LINKEDIN_CLIENT_ID: document.getElementById('linkedin-client-id').value,
-      LINKEDIN_CLIENT_SECRET: document.getElementById('linkedin-client-secret').value
-    };
+    const updates = {};
+    
+    // Only save settings that actually exist on the page
+    const githubRepoInput = document.getElementById('github-default-repo');
+    if (githubRepoInput) {
+      updates.GITHUB_DEFAULT_REPO = githubRepoInput.value || 'social-posts';
+    }
+    
+    const linkedinClientId = document.getElementById('linkedin-client-id');
+    if (linkedinClientId) {
+      updates.LINKEDIN_CLIENT_ID = linkedinClientId.value;
+    }
+    
+    const linkedinClientSecret = document.getElementById('linkedin-client-secret');
+    if (linkedinClientSecret) {
+      updates.LINKEDIN_CLIENT_SECRET = linkedinClientSecret.value;
+    }
     
     await window.bufferKillerAPI.updateSettings(updates);
     showNotification('Settings saved successfully! Restart the app to apply changes.', 'success');
@@ -1401,6 +1455,28 @@ style.textContent = `
   }
 `;
 document.head.appendChild(style);
+
+// Global debug helpers
+window.bufferKillerDebug = {
+  reloadAccounts: loadAccounts,
+  getAccounts: () => window.bufferKillerAPI.getAccounts(),
+  testMastodon: async () => {
+    const content = `Test from Buffer Killer! Time: ${new Date().toLocaleTimeString()}`;
+    return await window.bufferKillerAPI.schedulePost({
+      content,
+      platforms: ['mastodon'],
+      scheduledTime: new Date().toISOString()
+    });
+  },
+  showAccounts: async () => {
+    const accounts = await window.bufferKillerAPI.getAccounts();
+    console.table(accounts);
+    return accounts;
+  }
+};
+
+console.log('Buffer Killer Debug available: window.bufferKillerDebug');
+console.log('Commands: reloadAccounts(), getAccounts(), testMastodon(), showAccounts()');
 
 // Draft system functions
 async function loadDrafts() {
@@ -1656,16 +1732,21 @@ function setupAutoSave() {
       const content = postContent.value.trim();
       if (content && content.length > 10) {
         try {
-          // Generate draft ID if needed
+          // Generate temporary draft ID if needed
           if (!currentDraftId) {
             currentDraftId = 'draft-' + Date.now();
           }
           
-          await window.bufferKillerAPI.autoSaveDraft(
+          const result = await window.bufferKillerAPI.autoSaveDraft(
             currentDraftId,
             content,
             Array.from(selectedPlatforms)
           );
+          
+          // Update the draft ID with the real one from the database
+          if (result && result.id) {
+            currentDraftId = result.id;
+          }
           
           // Show subtle indication of auto-save
           const savedIndicator = document.createElement('span');

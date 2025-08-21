@@ -13,16 +13,22 @@ class OAuthServer extends EventEmitter {
 
   async start() {
     if (this.isRunning) {
-      console.log('OAuth server already running');
+      console.log('[OAUTH SERVER] Already running on port', this.port);
       return;
     }
 
+    console.log('[OAUTH SERVER] Starting OAuth server...');
     this.app = express();
     
     // OAuth callback endpoints
     this.app.get('/auth/:platform/callback', (req, res) => {
       const { platform } = req.params;
       const { code, state, error, error_description } = req.query;
+      
+      console.log(`[OAUTH SERVER] Callback received for ${platform}`);
+      console.log(`[OAUTH SERVER] Code: ${code ? 'present' : 'missing'}`);
+      console.log(`[OAUTH SERVER] State: ${state || 'missing'}`);
+      console.log(`[OAUTH SERVER] Full query params:`, req.query);
       
       if (error) {
         // Handle OAuth error
@@ -74,11 +80,16 @@ class OAuthServer extends EventEmitter {
       
       if (code) {
         // Successfully received authorization code
+        console.log(`[OAUTH SERVER] Emitting auth-code event for ${platform}`);
+        console.log(`[OAUTH SERVER] Event data:`, { platform, code: code.substring(0, 10) + '...', state });
+        
         this.emit('auth-code', {
           platform,
           code,
           state
         });
+        
+        console.log(`[OAUTH SERVER] Event emitted successfully`);
         
         res.send(`
           <!DOCTYPE html>
@@ -143,7 +154,19 @@ class OAuthServer extends EventEmitter {
     
     // Health check endpoint
     this.app.get('/health', (req, res) => {
-      res.json({ status: 'ok', port: this.port });
+      console.log('[OAUTH SERVER] Health check requested');
+      res.json({ status: 'ok', port: this.port, time: new Date().toISOString() });
+    });
+    
+    // Test endpoint to verify server is reachable
+    this.app.get('/', (req, res) => {
+      console.log('[OAUTH SERVER] Root endpoint accessed');
+      res.send(`
+        <h1>OAuth Server Running</h1>
+        <p>Port: ${this.port}</p>
+        <p>Time: ${new Date().toISOString()}</p>
+        <p>Ready to handle OAuth callbacks at /auth/:platform/callback</p>
+      `);
     });
     
     // Start server

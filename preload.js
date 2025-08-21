@@ -11,6 +11,10 @@ contextBridge.exposeInMainWorld('bufferKillerAPI', {
     return await ipcRenderer.invoke('schedule-post', postData);
   },
   
+  postNow: async (content, platforms, selectedAccounts) => {
+    return await ipcRenderer.invoke('post-now', content, platforms, selectedAccounts);
+  },
+  
   getScheduledPosts: async () => {
     return await ipcRenderer.invoke('get-scheduled-posts');
   },
@@ -93,6 +97,23 @@ contextBridge.exposeInMainWorld('bufferKillerAPI', {
   
   getAccounts: async () => {
     return await ipcRenderer.invoke('get-accounts');
+  },
+  
+  // FIXED: Added missing account methods
+  addAccount: async (platform, username, instance, data) => {
+    return await ipcRenderer.invoke('add-account', platform, username, instance, data);
+  },
+  
+  removeAccount: async (accountId) => {
+    return await ipcRenderer.invoke('remove-account', accountId);
+  },
+  
+  getCurrentWorkspace: async () => {
+    return await ipcRenderer.invoke('get-current-workspace');
+  },
+  
+  removeAccountFromWorkspace: async (workspaceId, accountId) => {
+    return await ipcRenderer.invoke('remove-account-from-workspace', workspaceId, accountId);
   },
   
   // Secure Token Management
@@ -256,6 +277,11 @@ contextBridge.exposeInMainWorld('bufferKillerAPI', {
   // System
   getAppVersion: async () => {
     return await ipcRenderer.invoke('get-app-version');
+  },
+  
+  // Debug helpers
+  debugAuthFlows: async () => {
+    return await ipcRenderer.invoke('debug-auth-flows');
   },
   
   checkForUpdates: async () => {

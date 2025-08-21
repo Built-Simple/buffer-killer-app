@@ -1,0 +1,22 @@
+{
+  "version": "0.9.0-beta",
+  "codename": "Testing Thunder",
+  "released": "2025-08-20",
+  "session": 10,
+  "status": "beta",
+  "features": {
+    "core": true,
+    "oauth": true,
+    "database": true,
+    "scheduling": true,
+    "drafts": true,
+    "testing": true,
+    "mastodon": 0.9,
+    "twitter": 0.5,
+    "github": 0.3,
+    "linkedin": 0.1
+  },
+  "testsPassingRate": 0.75,
+  "nextMilestone": "1.0.0",
+  "commits": 1
+}

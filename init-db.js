@@ -1,4 +1,4 @@
-// Initialize Database Schema
+// Initialize Database Schema - Complete Version
 const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
@@ -46,7 +46,8 @@ db.serialize(() => {
       profile_data TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      is_active INTEGER DEFAULT 1
+      is_active INTEGER DEFAULT 1,
+      workspace_id INTEGER
     )
   `, (err) => {
     if (err) console.error('Error creating accounts table:', err);
@@ -61,7 +62,8 @@ db.serialize(() => {
       platforms TEXT,
       media TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      workspace_id INTEGER
     )
   `, (err) => {
     if (err) console.error('Error creating drafts table:', err);
@@ -86,12 +88,15 @@ db.serialize(() => {
     else console.log('✓ Analytics table ready');
   });
 
-  // Workspaces table
+  // Workspaces table - IMPORTANT!
   db.run(`
     CREATE TABLE IF NOT EXISTS workspaces (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       color TEXT,
+      icon TEXT,
+      is_default INTEGER DEFAULT 0,
+      settings TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
@@ -109,7 +114,8 @@ db.serialize(() => {
       platforms TEXT,
       category TEXT,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      workspace_id INTEGER
     )
   `, (err) => {
     if (err) console.error('Error creating templates table:', err);
@@ -148,7 +154,7 @@ db.serialize(() => {
     else console.log('✓ Plugin settings table ready');
   });
 
-  // AB test results table
+  // A/B tests table
   db.run(`
     CREATE TABLE IF NOT EXISTS ab_tests (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -164,21 +170,92 @@ db.serialize(() => {
     else console.log('✓ A/B tests table ready');
   });
 
+  // Workspace members table (for future team features)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS workspace_members (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      workspace_id INTEGER NOT NULL,
+      user_email TEXT NOT NULL,
+      role TEXT DEFAULT 'member',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
+    )
+  `, (err) => {
+    if (err) console.error('Error creating workspace_members table:', err);
+    else console.log('✓ Workspace members table ready');
+  });
+
+  // Queue table for advanced scheduling
+  db.run(`
+    CREATE TABLE IF NOT EXISTS queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id INTEGER,
+      platform TEXT NOT NULL,
+      account_id INTEGER,
+      priority INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'pending',
+      attempts INTEGER DEFAULT 0,
+      last_attempt DATETIME,
+      next_attempt DATETIME,
+      error_message TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (post_id) REFERENCES posts(id),
+      FOREIGN KEY (account_id) REFERENCES accounts(id)
+    )
+  `, (err) => {
+    if (err) console.error('Error creating queue table:', err);
+    else console.log('✓ Queue table ready');
+  });
+
+  // Media library table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS media_library (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      filename TEXT NOT NULL,
+      filepath TEXT,
+      mimetype TEXT,
+      size INTEGER,
+      dimensions TEXT,
+      thumbnail TEXT,
+      workspace_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (workspace_id) REFERENCES workspaces(id)
+    )
+  `, (err) => {
+    if (err) console.error('Error creating media_library table:', err);
+    else console.log('✓ Media library table ready');
+  });
+
   // Create indexes for better performance
   db.run('CREATE INDEX IF NOT EXISTS idx_posts_scheduled_time ON posts(scheduled_time)');
   db.run('CREATE INDEX IF NOT EXISTS idx_posts_status ON posts(status)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_posts_workspace ON posts(workspace_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_analytics_post_id ON analytics(post_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_accounts_platform ON accounts(platform)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_accounts_workspace ON accounts(workspace_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_queue_status ON queue(status)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_queue_next_attempt ON queue(next_attempt)');
+
+  // Insert default workspace
+  db.run(`
+    INSERT OR IGNORE INTO workspaces (id, name, color, icon, is_default)
+    VALUES (1, 'Personal', '#667eea', '🚀', 1)
+  `, (err) => {
+    if (err) console.error('Error creating default workspace:', err);
+    else console.log('✓ Default workspace created');
+  });
 
   console.log('\n✅ Database initialization complete!');
 });
 
-// Close the database
-db.close((err) => {
-  if (err) {
-    console.error('Error closing database:', err);
-  } else {
-    console.log('Database connection closed.');
-    console.log('\nYou can now run: npm test');
-  }
-});
+// Close the database after a short delay to ensure all operations complete
+setTimeout(() => {
+  db.close((err) => {
+    if (err) {
+      console.error('Error closing database:', err);
+    } else {
+      console.log('Database connection closed.');
+      console.log('\nYou can now run: npm start');
+    }
+  });
+}, 1000);
