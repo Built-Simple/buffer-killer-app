@@ -750,16 +750,55 @@
           <div style="margin-bottom: 2rem; padding-bottom: 2rem; border-bottom: 1px solid var(--dark-border);">
             <h4 style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1rem;">
               <span>🐙 GitHub</span>
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: var(--success-color);"></span>
+              <span id="github-status" style="width: 8px; height: 8px; border-radius: 50%; background: var(--warning-color);"></span>
             </h4>
-            <p style="padding: 1rem; background: rgba(72, 187, 120, 0.1); border-radius: 6px; color: var(--success-color); margin-bottom: 1rem;">
-              ✅ No API keys required! GitHub uses browser-based authentication.
+            <p style="padding: 1rem; background: rgba(246, 173, 85, 0.1); border-radius: 6px; color: var(--warning-color); margin-bottom: 1rem;">
+              ⚠️ GitHub requires OAuth App credentials. Create your own GitHub OAuth App to connect.
             </p>
+            
             <div style="margin-bottom: 1rem;">
-              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted-text);">Default Repository (optional)</label>
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted-text);">Client ID</label>
+              <input type="text" id="github-client-id" placeholder="e.g., Ov23lilo1pR1e7uO3CVC" style="width: 100%; padding: 0.75rem; background: var(--dark-bg); color: var(--light-text); border: 1px solid var(--dark-border); border-radius: 6px;">
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted-text);">Client Secret</label>
+              <div style="position: relative;">
+                <input type="password" id="github-client-secret" placeholder="Enter GitHub Client Secret" style="width: 100%; padding: 0.75rem; padding-right: 3rem; background: var(--dark-bg); color: var(--light-text); border: 1px solid var(--dark-border); border-radius: 6px;">
+                <button onclick="togglePasswordVisibility('github-client-secret')" style="position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%); background: none; border: none; color: var(--muted-text); cursor: pointer;">👁️</button>
+              </div>
+            </div>
+            
+            <div style="margin-bottom: 1rem;">
+              <label style="display: block; margin-bottom: 0.5rem; font-size: 0.9rem; color: var(--muted-text);">Default Repository</label>
               <input type="text" id="github-default-repo" placeholder="social-posts" style="width: 100%; padding: 0.75rem; background: var(--dark-bg); color: var(--light-text); border: 1px solid var(--dark-border); border-radius: 6px;">
               <p style="font-size: 0.85rem; color: var(--muted-text); margin-top: 0.5rem;">This repo will be created automatically if it doesn't exist. Posts will be created as issues.</p>
             </div>
+            
+            <div style="display: flex; gap: 1rem;">
+              <button class="btn btn-secondary" onclick="testCredentials('github')">🧪 Test Connection</button>
+              <a href="https://github.com/settings/developers" target="_blank" class="btn btn-secondary" style="text-decoration: none;">🔗 Create OAuth App</a>
+            </div>
+            
+            <details style="margin-top: 1rem;">
+              <summary style="cursor: pointer; color: var(--primary-color);">📖 Setup Instructions</summary>
+              <div style="margin-top: 1rem; padding: 1rem; background: var(--dark-bg); border-radius: 6px; font-size: 0.9rem;">
+                <ol style="margin-left: 1.5rem; line-height: 1.8;">
+                  <li>Go to <a href="https://github.com/settings/developers" target="_blank" style="color: var(--primary-color);">GitHub Settings > Developer settings</a></li>
+                  <li>Click "New OAuth App"</li>
+                  <li>Use these settings:
+                    <ul style="margin-top: 0.5rem; margin-left: 1rem;">
+                      <li><strong>Application name:</strong> Buffer Killer</li>
+                      <li><strong>Homepage URL:</strong> http://127.0.0.1:3000</li>
+                      <li><strong>Authorization callback URL:</strong> http://127.0.0.1:3000/auth/github/callback</li>
+                    </ul>
+                  </li>
+                  <li>Click "Register application"</li>
+                  <li>Copy the Client ID and Client Secret</li>
+                  <li>Paste them above and click "Save Settings"</li>
+                </ol>
+              </div>
+            </details>
           </div>
           
           <!-- LinkedIn Settings -->

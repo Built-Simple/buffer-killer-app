@@ -50,6 +50,7 @@
     "node-fetch": "^2.7.0",
     "node-schedule": "^2.1.1",
     "oauth": "^0.10.2",
+    "open": "^8.4.2",
     "p-queue": "^6.6.2",
     "pkce-challenge": "^4.1.0",
     "puppeteer": "^21.11.0",

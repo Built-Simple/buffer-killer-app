@@ -1,132 +1,159 @@
-# Buffer Killer - Social Media Scheduler 🚀
+# Buffer Killer - Free Social Media Scheduler
 
-A free, open-source alternative to Buffer for scheduling social media posts. Built with Electron and no monthly fees!
+A free, open-source alternative to Buffer. Schedule posts across multiple platforms without monthly fees!
 
-## Current Status: v0.9.0 (Beta)
+## ✅ Working Platforms
 
-### ✅ Working Features:
-- **Core Architecture** - Electron app with secure IPC
-- **Database System** - SQLite with migrations
-- **OAuth Server** - Runs on localhost:3000
-- **Platform Support Started**:
-  - Mastodon (OAuth works, posting ready)
-  - Twitter/X (OAuth ready)
-  - GitHub (OAuth ready)
-- **Post Scheduling** - Create and manage scheduled posts
-- **Draft System** - Save and manage drafts
-- **CSV Import/Export** - Bulk operations
-- **Media Upload** - Image and video support
-- **Workspace System** - Multi-workspace support
-- **Testing Framework** - Complete console test suite
+| Platform | Status | Auth Method | Requirements |
+|----------|--------|-------------|--------------|
+| Twitter/X | ✅ Working | Browser OAuth 2.0 PKCE | None - fully automated! |
+| Mastodon | ✅ Working | Dynamic App Registration | None - pick your instance! |
+| GitHub | ✅ Working | OAuth App | User's Client ID/Secret |
+| LinkedIn | ✅ Working | OAuth 2.0 | User's Client ID/Secret |
+| Facebook | ❌ TODO | - | - |
+| Instagram | ❌ TODO | - | - |
 
-### 🔧 Known Issues (Being Fixed):
-- Account persistence after OAuth needs work
-- Account selector UI component missing
-- Some accounts may have corrupted data
-- Workspace linking not always working
+## Features
 
-### 🚀 Quick Start:
+- 📅 **Schedule posts** for any time
+- 🖼️ **Media uploads** (images & videos)
+- 📝 **Draft system** with auto-save
+- 📊 **Analytics dashboard** 
+- 🎨 **Image generation** from text
+- 📁 **CSV import/export**
+- ⚡ **Rate limiting** protection
+- 🔌 **Plugin system**
 
-```bash
-# Install dependencies
-npm install
+## Quick Start
 
-# Start the app
-npm run dev
+1. **Install dependencies:**
+   ```bash
+   npm install
+   ```
 
-# Run tests (in browser console)
-# Copy test/console-test-suite.js and paste in console
-bufferKillerTests.runAllTests()
-```
+2. **Start the app:**
+   ```bash
+   npm start
+   ```
 
-### 📁 Project Structure:
-```
-buffer-killer-app/
-├── main.js              # Main Electron process
-├── preload.js           # Secure IPC bridge
-├── renderer.js          # UI logic
-├── index.html           # Main UI
-├── lib/                 # Platform integrations
-│   ├── platforms/       # OAuth and API implementations
-│   ├── rate-limiter/    # Rate limiting system
-│   └── image-generator/ # Text-to-image system
-├── src/                 
-│   ├── database/        # SQLite database
-│   ├── main/           # Main process modules
-│   └── drafts/         # Draft management
-├── test/               # Testing framework
-│   ├── console-test-suite.js
-│   ├── quick-fix-diagnostic.js
-│   └── database-fix.js
-└── data/               # App data (gitignored)
-```
+3. **Configure platforms:**
+   - **Twitter/Mastodon**: Just click connect!
+   - **LinkedIn**: Create app at [developer.linkedin.com](https://developer.linkedin.com), add credentials in Settings
+   - **GitHub**: Create OAuth app, add credentials in Settings
 
-### 🧪 Testing:
+## Platform Details
 
-The app includes a comprehensive browser-based test suite:
+### Twitter/X ✅
+- **No API keys needed!** Uses browser OAuth 2.0 with PKCE
+- Posts tweets successfully
+- Media upload support
+- 2-hour token refresh cycle
 
-```javascript
-// Load tests (paste test/console-test-suite.js in console)
-// Then run:
-bufferKillerTests.runAllTests()        // Run all tests
-bufferKillerTests.testManualAccountAdd() // Add test account
-bufferKillerTests.testPostFunctionality() // Test posting
-```
+### Mastodon ✅
+- **No API keys needed!** Dynamic app registration
+- Multi-instance support - user selects their instance
+- Posts toots successfully
+- Media upload support
 
-### 🔐 Security:
-- Context isolation enabled
-- Sandbox mode active
-- Secure token storage
-- OAuth 2.0 with PKCE
-- No API keys needed for most platforms
+### GitHub ✅
+- Posts as issues to repositories
+- Browser-based OAuth flow
+- User provides their own OAuth app credentials
+- Configurable default repository
 
-### 📝 TODO (Next Features):
-- [ ] Fix account persistence after OAuth
-- [ ] Complete Twitter posting
-- [ ] Add LinkedIn support
-- [ ] Add Facebook/Instagram
-- [ ] Analytics dashboard
-- [ ] Plugin system
-- [ ] AI content enhancement
-- [ ] Team collaboration
-- [ ] Mobile app
+### LinkedIn ✅
+- Posts to LinkedIn feed
+- Uses `w_member_social` scope (no LinkedIn review needed!)
+- 60-day access tokens
+- REST API implementation
 
-### 🤝 Contributing:
+## Why Buffer Killer?
 
-This is an active project! Feel free to:
+### 🆓 No Monthly Fees!
+- Own your data
+- No usage limits
+- Self-hosted
+- Fully open source
+
+### 🔒 Privacy First
+- All data stored locally
+- No tracking or analytics
+- Secure token storage with Electron safeStorage
+- You control your OAuth apps
+
+### 🚀 Developer Friendly
+- MIT License - use freely!
+- Plugin architecture
+- SQLite database
+- Modern tech stack
+
+## Tech Stack
+
+- **Electron v28** - Desktop app framework
+- **Node.js v18+** - Runtime
+- **SQLite** - Local database
+- **Puppeteer** - Image generation
+- **FFmpeg.wasm** - Video editing
+- **OAuth 2.0** - Secure authentication
+
+## Key Files
+
+- `main.js` - Electron main process with OAuth handling
+- `renderer.js` - UI logic and interactions  
+- `index.html` - Main interface
+- `lib/platforms/` - Platform implementations
+- `src/database/` - Database layer
+- `.env` - User's API credentials (git ignored)
+
+## Development Status
+
+### ✅ FULLY WORKING:
+- Twitter/X posting with browser OAuth
+- Mastodon multi-instance support
+- GitHub issue creation
+- LinkedIn posting with w_member_social scope
+- Full scheduling system with SQLite
+- Media uploads and video support
+- Draft system with auto-save
+- CSV import/export
+- Rate limiting per platform
+- Analytics dashboard
+- Image generation (10 templates)
+- Plugin architecture
+
+### ⚠️ TODO:
+- Facebook integration (complex API)
+- Instagram integration (requires Facebook Graph API)
+- Bulk operations improvements
+- Team features
+- Mobile companion app
+
+## Requirements
+
+- **Node.js v18+**
+- **Electron v28**
+- **For LinkedIn & GitHub**: User provides OAuth app credentials
+- **For Twitter/Mastodon**: No setup required!
+
+## License
+
+MIT - Use it however you want!
+
+## Contributing
+
+This is an open source project. Feel free to:
 - Report bugs
-- Suggest features
+- Request features  
 - Submit pull requests
-- Test the app
+- Create plugins
 
-### 📄 License:
+## Support
 
-MIT License - Free to use, modify, and distribute!
-
-### 💡 Philosophy:
-
-Why pay monthly fees for something you can own? Buffer Killer gives you:
-- **No monthly fees** - One-time setup, use forever
-- **Your data** - Everything stored locally
-- **Extensible** - Add any platform with an API
-- **Open source** - See and modify the code
-
-### 🚨 Current Session Notes:
-
-**Session 10 Status:**
-- Fixed 5 missing API methods
-- Fixed UI selector issues
-- Created comprehensive test suite
-- Database system working
-- OAuth flow functional
-- Ready for continued development
-
-**Next Steps:**
-- Fix account data persistence
-- Test real Mastodon posting
-- Add more platforms
-- Polish UI
+- Check the built-in help system
+- Review the documentation in `/docs`
+- Run diagnostics with the built-in tools
+- Test OAuth flows with included test scripts
 
 ---
 
-Built with ❤️ as a Buffer alternative. No subscription required!
+**Built with ❤️ as a free alternative to expensive social media tools**

@@ -1198,8 +1198,23 @@ window.loadSettings = async function() {
     const settings = await window.bufferKillerAPI.getSettings();
     const status = await window.bufferKillerAPI.getPlatformStatus();
     
-    // Load GitHub default repo (optional setting)
+    // Load GitHub settings
+    const githubClientId = document.getElementById('github-client-id');
+    const githubClientSecret = document.getElementById('github-client-secret');
+    const githubStatus = document.getElementById('github-status');
     const githubRepoInput = document.getElementById('github-default-repo');
+    
+    if (githubClientId) {
+      githubClientId.value = settings.GITHUB_CLIENT_ID || '';
+    }
+    if (githubClientSecret) {
+      githubClientSecret.value = settings.GITHUB_CLIENT_SECRET || '';
+    }
+    if (githubStatus) {
+      // Check if both client ID and secret are set
+      const isConfigured = settings.GITHUB_CLIENT_ID && settings.GITHUB_CLIENT_SECRET;
+      githubStatus.style.background = isConfigured ? 'var(--success-color)' : 'var(--warning-color)';
+    }
     if (githubRepoInput) {
       githubRepoInput.value = settings.GITHUB_DEFAULT_REPO || 'social-posts';
     }
@@ -1228,12 +1243,23 @@ window.saveSettings = async function() {
   try {
     const updates = {};
     
-    // Only save settings that actually exist on the page
+    // Save GitHub settings
+    const githubClientId = document.getElementById('github-client-id');
+    if (githubClientId) {
+      updates.GITHUB_CLIENT_ID = githubClientId.value;
+    }
+    
+    const githubClientSecret = document.getElementById('github-client-secret');
+    if (githubClientSecret) {
+      updates.GITHUB_CLIENT_SECRET = githubClientSecret.value;
+    }
+    
     const githubRepoInput = document.getElementById('github-default-repo');
     if (githubRepoInput) {
       updates.GITHUB_DEFAULT_REPO = githubRepoInput.value || 'social-posts';
     }
     
+    // Save LinkedIn settings
     const linkedinClientId = document.getElementById('linkedin-client-id');
     if (linkedinClientId) {
       updates.LINKEDIN_CLIENT_ID = linkedinClientId.value;

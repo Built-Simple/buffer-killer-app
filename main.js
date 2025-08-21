@@ -17,7 +17,7 @@ const MastodonAPI = require('./lib/platforms/mastodon');
 const GitHubAuth = require('./lib/platforms/github-auth');
 const GitHubBrowserAuth = require('./lib/platforms/github-browser-auth');
 const GitHubAPI = require('./lib/platforms/github');
-const LinkedInBrowserAuth = require('./lib/platforms/linkedin-browser-auth');
+const LinkedInAuth = require('./lib/platforms/linkedin-auth');
 const LinkedInAPI = require('./lib/platforms/linkedin');
 const WebsiteAPI = require('./lib/platforms/website');
 const SkoolAPI = require('./lib/platforms/skool');
@@ -410,10 +410,12 @@ async function publishToPlatform(platform, content, mediaFiles = []) {
       
       const credentials = JSON.parse(account.credentials);
       
-      // Post to LinkedIn
+      // Post to LinkedIn using REST API (works with w_member_social)
       console.log(`Posting to LinkedIn: "${content}"`);
       const linkedin = new LinkedInAPI(credentials.accessToken, credentials.userId);
-      const result = await linkedin.post(content);
+      
+      // Use the REST API method which works with w_member_social scope
+      const result = await linkedin.postV2(content);
       
       console.log('LinkedIn post created successfully:', result.id);
       return result;
@@ -675,16 +677,29 @@ function setupIpcHandlers() {
         console.log('Using browser-based GitHub authentication - no API keys required!');
         return result;
       } else if (platform === 'linkedin') {
-        // Use browser-based auth (simplified OAuth)
-        const linkedinAuth = new LinkedInBrowserAuth();
+        // Check if credentials are configured
+        const settings = await settingsManager.loadSettings();
+        const clientId = settings.LINKEDIN_CLIENT_ID;
+        const clientSecret = settings.LINKEDIN_CLIENT_SECRET;
         
-        // Start browser-based LinkedIn OAuth flow
+        if (!clientId || !clientSecret) {
+          return {
+            success: false,
+            message: 'Please configure your LinkedIn API credentials in Settings first',
+            requiresSetup: true
+          };
+        }
+        
+        // Use full OAuth with user-provided credentials
+        const linkedinAuth = new LinkedInAuth(clientId, clientSecret);
+        
+        // Start LinkedIn OAuth flow
         const result = await linkedinAuth.authenticate();
         
         // Store auth instance for later
         activeAuthFlows.set('linkedin', linkedinAuth);
         
-        console.log('Using simplified LinkedIn authentication');
+        console.log('Using LinkedIn OAuth with user credentials');
         return result;
       }
       
@@ -1415,7 +1430,7 @@ app.whenReady().then(async () => {
           const auth = activeAuthFlows.get('linkedin');
           
           try {
-            // Try to exchange code for token
+            // Exchange code for token (now works with client secret!)
             const tokens = await auth.exchangeCodeForToken(code, state);
             
             // Get user info
@@ -1440,14 +1455,14 @@ app.whenReady().then(async () => {
             }
             
             activeAuthFlows.delete('linkedin');
-            console.log(`Successfully connected LinkedIn account: ${userInfo.name}`);
+            console.log(`✅ Successfully connected LinkedIn account: ${userInfo.name}`);
+            console.log('LinkedIn posting is now enabled with w_member_social scope!');
           } catch (error) {
-            // LinkedIn requires server-side token exchange
             console.error('LinkedIn auth error:', error);
             if (mainWindow) {
               mainWindow.webContents.send('auth-error', {
                 platform: 'linkedin',
-                error: 'LinkedIn requires API keys for full functionality. Please configure in Settings.'
+                error: error.message
               });
             }
             activeAuthFlows.delete('linkedin');
